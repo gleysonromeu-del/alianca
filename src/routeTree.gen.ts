@@ -17,6 +17,7 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as CampeonatoRouteImport } from './routes/campeonato'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminCampeonatoRouteImport } from './routes/admin.campeonato'
 
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCampeonatoRoute = AdminCampeonatoRouteImport.update({
+  id: '/admin/campeonato',
+  path: '/admin/campeonato',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/jogadores': typeof JogadoresRoute
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/admin/campeonato': typeof AdminCampeonatoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/jogadores': typeof JogadoresRoute
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/admin/campeonato': typeof AdminCampeonatoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/jogadores': typeof JogadoresRoute
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/admin/campeonato': typeof AdminCampeonatoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/jogadores'
     | '/login'
     | '/redefinir-senha'
+    | '/admin/campeonato'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/jogadores'
     | '/login'
     | '/redefinir-senha'
+    | '/admin/campeonato'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/jogadores'
     | '/login'
     | '/redefinir-senha'
+    | '/admin/campeonato'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   JogadoresRoute: typeof JogadoresRoute
   LoginRoute: typeof LoginRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  AdminCampeonatoRoute: typeof AdminCampeonatoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/campeonato': {
+      id: '/admin/campeonato'
+      path: '/admin/campeonato'
+      fullPath: '/admin/campeonato'
+      preLoaderRoute: typeof AdminCampeonatoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,7 +224,18 @@ const rootRouteChildren: RootRouteChildren = {
   JogadoresRoute: JogadoresRoute,
   LoginRoute: LoginRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  AdminCampeonatoRoute: AdminCampeonatoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
