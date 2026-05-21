@@ -31,7 +31,7 @@ function LoginPage() {
     <div className="min-h-screen grid place-items-center px-5 py-16 bg-background">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-8 shadow-xl">
         <h1 className="text-2xl font-bold text-foreground">Entrar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Área dos jogadores</p>
+        <p className="mt-1 text-sm text-muted-foreground"<p>Área dos Jogadores</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
