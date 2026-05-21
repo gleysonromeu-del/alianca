@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   type Time,
-  type TimeJogador,
   type JogadorLite,
   useJogadores,
   useTimeJogadores,
