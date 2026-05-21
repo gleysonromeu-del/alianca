@@ -8,7 +8,7 @@ import { Footer } from "@/components/site/Footer";
 import { WatermarkBackground } from "@/components/site/WatermarkBackground";
 import { Aniversariantes } from "@/components/site/Aniversariantes";
 import { MomentosCarousel } from "@/components/site/MomentosCarousel";
-import AdminCampeonato from "@/pages/admin/AdminCampeonato";
+
 export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
