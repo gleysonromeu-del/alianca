@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as JogadoresRouteImport } from './routes/jogadores'
 import { Route as InscricoesRouteImport } from './routes/inscricoes'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
+import { Route as CampeonatoRouteImport } from './routes/campeonato'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -42,6 +43,11 @@ const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
   path: '/esqueci-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampeonatoRoute = CampeonatoRouteImport.update({
+  id: '/campeonato',
+  path: '/campeonato',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
@@ -56,6 +62,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
+  '/campeonato': typeof CampeonatoRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/inscricoes': typeof InscricoesRoute
   '/jogadores': typeof JogadoresRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
+  '/campeonato': typeof CampeonatoRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/inscricoes': typeof InscricoesRoute
   '/jogadores': typeof JogadoresRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
+  '/campeonato': typeof CampeonatoRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/inscricoes': typeof InscricoesRoute
   '/jogadores': typeof JogadoresRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cadastro'
+    | '/campeonato'
     | '/esqueci-senha'
     | '/inscricoes'
     | '/jogadores'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cadastro'
+    | '/campeonato'
     | '/esqueci-senha'
     | '/inscricoes'
     | '/jogadores'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/cadastro'
+    | '/campeonato'
     | '/esqueci-senha'
     | '/inscricoes'
     | '/jogadores'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CadastroRoute: typeof CadastroRoute
+  CampeonatoRoute: typeof CampeonatoRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   InscricoesRoute: typeof InscricoesRoute
   JogadoresRoute: typeof JogadoresRoute
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EsqueciSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campeonato': {
+      id: '/campeonato'
+      path: '/campeonato'
+      fullPath: '/campeonato'
+      preLoaderRoute: typeof CampeonatoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cadastro': {
       id: '/cadastro'
       path: '/cadastro'
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CadastroRoute: CadastroRoute,
+  CampeonatoRoute: CampeonatoRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   InscricoesRoute: InscricoesRoute,
   JogadoresRoute: JogadoresRoute,
@@ -187,3 +208,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
