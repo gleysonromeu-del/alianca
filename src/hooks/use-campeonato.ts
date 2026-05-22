@@ -420,5 +420,3 @@ export function useEncerrarCampeonato() {
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
-
-      if (
