@@ -326,3 +326,6 @@ export default function CampeonatoPage() {
     </div>
   );
 }
+
+export const Route = createFileRoute('/campeonato')({ component: CampeonatoPage });
+
