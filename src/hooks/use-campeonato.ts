@@ -295,6 +295,20 @@ export function useCriarCampeonato() {
   });
 }
 
+export function useJogadores() {
+  return useQuery({
+    queryKey: ["jogadores"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("jogadores")
+        .select("id, nome_completo, apelido, foto_url")
+        .order("apelido", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
 export function useCriarTime() {
   const qc = useQueryClient();
   return useMutation({
@@ -305,4 +319,106 @@ export function useCriarTime() {
         .select()
         .single();
       if (error) throw error;
+      if (jogador_ids?.length) {
+        const rows = jogador_ids.map((jid) => ({
+          time_id: time.id,
+          jogador_id: jid,
+          campeonato_id: timeData.campeonato_id,
+        }));
+        const { error: e2 } = await supabase.from("time_jogadores").insert(rows);
+        if (e2) throw e2;
+      }
+      return time;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["times"] });
+      qc.invalidateQueries({ queryKey: ["time-jogadores"] });
+      toast.success("Time criado!");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useDeletarTime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("times").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["times"] });
+      toast.success("Time removido");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useCriarPartida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreatePartidaInput) => {
+      const { data, error } = await supabase.from("partidas").insert(input).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["partidas"] });
+      toast.success("Partida criada");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useDeletarPartida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("partidas").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["partidas"] });
+      qc.invalidateQueries({ queryKey: ["times"] });
+      toast.success("Partida removida");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useFinalizarPartida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ partida_id, gols_a, gols_b, observacoes }: FinalizarPartidaInput) => {
+      const { error } = await supabase
+        .from("partidas")
+        .update({ gols_a, gols_b, status: "finalizada", observacoes: observacoes ?? null })
+        .eq("id", partida_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["partidas"] });
+      qc.invalidateQueries({ queryKey: ["times"] });
+      toast.success("Partida finalizada");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useEncerrarCampeonato() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (campeonato_id: string) => {
+      const { error } = await supabase.rpc("encerrar_campeonato", { p_campeonato_id: campeonato_id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campeonato"] });
+      qc.invalidateQueries({ queryKey: ["historico-campeoes"] });
+      toast.success("Campeonato encerrado!");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
       if (
