@@ -13,6 +13,7 @@ import {
   formatMes,
   saldoGols,
 } from "@/hooks/use-campeonato";
+import { RankingAnual } from "@/components/site/RankingAnual";
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
 
@@ -291,6 +292,10 @@ export default function CampeonatoPage() {
             </div>
           </motion.section>
         </div>
+
+
+        {/* ── Ranking Anual (acumulado Jan–Dez) ── */}
+        <RankingAnual />
 
         {/* ── Hall da Fama ── */}
         <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>

@@ -8,6 +8,8 @@ import {
   useCampeonatoRealtime,
   formatMes,
 } from "@/hooks/use-campeonato";
+import { RankingAnual } from "./RankingAnual";
+
 
 export function CampeonatoMensalSection() {
   useCampeonatoRealtime();
@@ -170,6 +172,10 @@ export function CampeonatoMensalSection() {
             </p>
           </motion.div>
         )}
+
+        <div className="mt-16">
+          <RankingAnual />
+        </div>
       </div>
     </section>
   );

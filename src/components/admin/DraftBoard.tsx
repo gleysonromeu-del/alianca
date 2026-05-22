@@ -26,7 +26,7 @@ function Player({ j, source }: { j: JogadorLite; source: string }) {
       }`}
     >
       {j.apelido}
-      <span className="ml-2 text-xs text-muted-foreground">{j.posicao}</span>
+      
     </div>
   );
 }

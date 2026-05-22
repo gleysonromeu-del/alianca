@@ -228,5 +228,44 @@ end $$;
 
 -- Realtime
 do $$ begin
-  alter publication supabase_realtime add table public.times, public.partidas, public.time_jogadores, public.campeonato_mensal;
+  alter publication supabase_realtime add table public.times, public.partidas, public.time_jogadores, public.campeonato_mensal, public.estatisticas_partida;
 exception when duplicate_object then null; when others then null; end $$;
+
+-- =====================================================================
+-- Ranking anual acumulado (artilharia + assistências)
+-- Soma todas as estatísticas de partidas FINALIZADAS dos campeonatos
+-- do ano informado (janeiro a dezembro).
+-- =====================================================================
+create or replace function public.ranking_anual(_ano int)
+returns table (
+  jogador_id uuid,
+  apelido text,
+  nome_completo text,
+  foto_url text,
+  gols bigint,
+  assistencias bigint,
+  amarelos bigint,
+  vermelhos bigint,
+  jogos bigint
+) language sql stable security definer set search_path = public as $$
+  select
+    j.id as jogador_id,
+    j.apelido,
+    j.nome_completo,
+    j.foto_url,
+    coalesce(sum(ep.gols), 0)::bigint as gols,
+    coalesce(sum(ep.assistencias), 0)::bigint as assistencias,
+    coalesce(sum(ep.amarelos), 0)::bigint as amarelos,
+    coalesce(sum(ep.vermelhos), 0)::bigint as vermelhos,
+    count(distinct case when ep.presente then ep.partida_id end)::bigint as jogos
+  from public.jogadores j
+  join public.estatisticas_partida ep on ep.jogador_id = j.id
+  join public.partidas p on p.id = ep.partida_id and p.status = 'finalizada'
+  join public.campeonato_mensal c on c.id = p.campeonato_id
+  where extract(year from c.mes) = _ano
+  group by j.id, j.apelido, j.nome_completo, j.foto_url
+  having coalesce(sum(ep.gols), 0) + coalesce(sum(ep.assistencias), 0) > 0
+  order by gols desc, assistencias desc, j.apelido asc;
+$$;
+
+grant execute on function public.ranking_anual(int) to anon, authenticated;
