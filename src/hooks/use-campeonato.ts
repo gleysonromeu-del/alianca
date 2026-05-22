@@ -421,3 +421,28 @@ export function useEncerrarCampeonato() {
   });
 }
 export type JogadorLite = { id: string; nome_completo: string; apelido: string; foto_url: string | null };
+
+export interface RankingAnualRow {
+  jogador_id: string;
+  apelido: string;
+  nome_completo: string;
+  foto_url: string | null;
+  gols: number;
+  assistencias: number;
+  amarelos: number;
+  vermelhos: number;
+  jogos: number;
+}
+
+export function useRankingAnual(ano: number = new Date().getFullYear()) {
+  return useQuery({
+    queryKey: ["ranking-anual", ano],
+    queryFn: async (): Promise<RankingAnualRow[]> => {
+      const { data, error } = await supabase.rpc("ranking_anual", { _ano: ano });
+      if (error) throw error;
+      return (data ?? []) as RankingAnualRow[];
+    },
+    staleTime: 1000 * 60,
+  });
+}
+
