@@ -419,4 +419,5 @@ export function useEncerrarCampeonato() {
     },
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
-}export type JogadorLite = { id: string; nome_completo: string; apelido: string; foto_url: string | null };
+}
+export type JogadorLite = { id: string; nome_completo: string; apelido: string; foto_url: string | null };
