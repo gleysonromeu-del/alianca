@@ -13,6 +13,7 @@ import {
   formatMes,
   saldoGols,
 } from "@/hooks/use-campeonato";
+import { RankingAnual } from "@/components/site/RankingAnual";
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
 
