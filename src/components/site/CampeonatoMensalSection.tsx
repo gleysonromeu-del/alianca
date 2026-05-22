@@ -8,6 +8,8 @@ import {
   useCampeonatoRealtime,
   formatMes,
 } from "@/hooks/use-campeonato";
+import { RankingAnual } from "./RankingAnual";
+
 
 export function CampeonatoMensalSection() {
   useCampeonatoRealtime();
