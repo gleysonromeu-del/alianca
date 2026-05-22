@@ -1,7 +1,7 @@
 // src/pages/admin/AdminCampeonato.tsx
 // Painel do admin: cria campeonato, gerencia times, lança resultados e encerra mês
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   X,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   useCampeonatoAtual,
@@ -35,6 +36,8 @@ import {
 } from "@/hooks/use-campeonato";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { useNavigate } from "@tanstack/react-router";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -369,6 +372,9 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
 export default function AdminCampeonato() {
   useCampeonatoRealtime();
 
+  const { user, isAdmin, loading: loadingAuth } = useAuth();
+  const navigate = useNavigate();
+
   const { data: camp, isLoading: loadingCamp } = useCampeonatoAtual();
   const { data: todosCamp = [] } = useTodosCampeonatos();
   const { data: times = [] } = useTimes(camp?.id);
@@ -383,6 +389,32 @@ export default function AdminCampeonato() {
   const [modalPartida, setModalPartida] = useState(false);
   const [modalPlacar, setModalPlacar] = useState<Partida | null>(null);
   const [confirmEncerrar, setConfirmEncerrar] = useState(false);
+
+  useEffect(() => {
+    if (loadingAuth) return;
+    if (!user) {
+      navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (!isAdmin) {
+      navigate({ to: "/jogadores", replace: true });
+    }
+  }, [loadingAuth, user, isAdmin, navigate]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    navigate({ to: "/login", replace: true });
+  }
+
+  if (loadingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) return null;
 
   const partidasAgendadas = partidas.filter((p) => p.status === "agendada");
   const partidasFinalizadas = partidas.filter((p) => p.status === "finalizada");
@@ -500,6 +532,12 @@ export default function AdminCampeonato() {
               className="flex items-center gap-2 rounded-2xl bg-amber-500/20 px-4 py-2.5 text-sm font-semibold text-amber-400 hover:bg-amber-500/30 transition disabled:opacity-40"
             >
               <Beer className="h-4 w-4" /> Encerrar mês
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
+            >
+              <LogOut className="h-4 w-4" /> Sair
             </button>
           </div>
         </div>
@@ -671,6 +709,5 @@ export default function AdminCampeonato() {
   );
 }
 
-import { createFileRoute } from '@tanstack/react-router';
-export const Route = createFileRoute('/admin/campeonato')({ component: AdminCampeonato });
-
+import { createFileRoute } from "@tanstack/react-router";
+export const Route = createFileRoute("/admin/campeonato")({ component: AdminCampeonato });
