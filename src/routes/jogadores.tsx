@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase, POSICOES } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useIsAdmin } from "@/hooks/use-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,8 +55,7 @@ type Inscricao = {
 };
 
 function JogadoresPage() {
-  const { user, loading } = useAuth();
-  const { isAdmin } = useIsAdmin(user?.id);
+  const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [me, setMe] = useState<Jogador | null>(null);
   const [jogadores, setJogadores] = useState<Jogador[]>([]);
@@ -106,16 +104,19 @@ function JogadoresPage() {
     if (!user) return;
     setSavingEdit(true);
     setEditMsg(null);
-    const { error } = await supabase.from("jogadores").update({
-      nome_completo: editForm.nome_completo,
-      apelido: editForm.apelido,
-      cpf: editForm.cpf || null,
-      telefone: editForm.telefone || null,
-      email: editForm.email || null,
-      profissao: editForm.profissao || null,
-      posicao: editForm.posicao,
-      numero_camisa: editForm.numero_camisa ? Number(editForm.numero_camisa) : null,
-    }).eq("id", user.id);
+    const { error } = await supabase
+      .from("jogadores")
+      .update({
+        nome_completo: editForm.nome_completo,
+        apelido: editForm.apelido,
+        cpf: editForm.cpf || null,
+        telefone: editForm.telefone || null,
+        email: editForm.email || null,
+        profissao: editForm.profissao || null,
+        posicao: editForm.posicao,
+        numero_camisa: editForm.numero_camisa ? Number(editForm.numero_camisa) : null,
+      })
+      .eq("id", user.id);
     setSavingEdit(false);
     if (error) return setEditMsg(error.message);
     setEditMsg("Cadastro atualizado!");
@@ -134,17 +135,11 @@ function JogadoresPage() {
     setJogadores(list);
     setMe(list.find((p) => p.id === user.id) ?? null);
 
-    const { data: pags } = await supabase
-      .from("pagamentos")
-      .select("*")
-      .order("criado_em", { ascending: false });
+    const { data: pags } = await supabase.from("pagamentos").select("*").order("criado_em", { ascending: false });
     setPagamentos((pags as Pagamento[]) ?? []);
 
     if (isAdmin) {
-      const { data: ins } = await supabase
-        .from("inscricoes")
-        .select("*")
-        .order("criado_em", { ascending: false });
+      const { data: ins } = await supabase.from("inscricoes").select("*").order("criado_em", { ascending: false });
       setInscricoes((ins as Inscricao[]) ?? []);
     }
   }
@@ -159,17 +154,13 @@ function JogadoresPage() {
     if (!isAdmin) return;
     const ch = supabase
       .channel("inscricoes-admin")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "inscricoes" },
-        (payload) => {
-          const novo = payload.new as Inscricao;
-          toast.success(`Nova inscrição: ${novo.nome_completo}`, {
-            description: `Indicado por ${novo.quem_indicou}`,
-          });
-          setInscricoes((prev) => [novo, ...prev]);
-        }
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "inscricoes" }, (payload) => {
+        const novo = payload.new as Inscricao;
+        toast.success(`Nova inscrição: ${novo.nome_completo}`, {
+          description: `Indicado por ${novo.quem_indicou}`,
+        });
+        setInscricoes((prev) => [novo, ...prev]);
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -183,7 +174,7 @@ function JogadoresPage() {
 
   async function logout() {
     await supabase.auth.signOut();
-    navigate({ to: "/" });
+    navigate({ to: "/login", replace: true });
   }
 
   async function handleUpload(e: FormEvent) {
@@ -194,9 +185,7 @@ function JogadoresPage() {
     try {
       const ext = file.name.split(".").pop() || "bin";
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("comprovantes")
-        .upload(path, file, { upsert: false });
+      const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, file, { upsert: false });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("comprovantes").getPublicUrl(path);
 
@@ -210,7 +199,8 @@ function JogadoresPage() {
 
       // Mensagem WhatsApp para o admin
       const nome = me?.nome_completo || me?.apelido || user.email;
-      const msg = `Olá! Enviei o comprovante de mensalidade.%0A` +
+      const msg =
+        `Olá! Enviei o comprovante de mensalidade.%0A` +
         `Jogador: ${nome}%0A` +
         (referencia ? `Referência: ${referencia}%0A` : "") +
         (valor ? `Valor: R$ ${valor}%0A` : "") +
@@ -221,7 +211,8 @@ function JogadoresPage() {
       setFile(null);
       setReferencia("");
       setValor("");
-      (document.getElementById("comprovante") as HTMLInputElement | null)?.value && ((document.getElementById("comprovante") as HTMLInputElement).value = "");
+      (document.getElementById("comprovante") as HTMLInputElement | null)?.value &&
+        ((document.getElementById("comprovante") as HTMLInputElement).value = "");
       await refresh();
     } catch (err: any) {
       setFeedback(err.message ?? "Erro ao enviar comprovante");
@@ -248,12 +239,29 @@ function JogadoresPage() {
             </h1>
             <p className="text-sm text-muted-foreground">
               Bem-vindo, {me?.apelido ?? user.email}
-              {isAdmin && <span className="ml-2 rounded-full bg-primary/20 text-primary px-2 py-0.5 text-xs">admin</span>}
+              {isAdmin && (
+                <span className="ml-2 rounded-full bg-primary/20 text-primary px-2 py-0.5 text-xs">admin</span>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
-            <Link to="/" className="inline-flex h-9 items-center justify-center rounded-md border border-input px-4 text-sm hover:bg-accent">Site</Link>
-            <Button variant="outline" onClick={logout}>Sair</Button>
+            <Link
+              to="/"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input px-4 text-sm hover:bg-accent"
+            >
+              Site
+            </Link>
+            {isAdmin && (
+              <Link
+                to="/admin/campeonato"
+                className="inline-flex h-9 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:opacity-90"
+              >
+                Painel Admin
+              </Link>
+            )}
+            <Button variant="outline" onClick={logout}>
+              Sair
+            </Button>
           </div>
         </div>
 
@@ -265,9 +273,12 @@ function JogadoresPage() {
               </div>
               <div className="flex-1 space-y-1">
                 <h2 className="text-xl font-bold text-foreground">
-                  {me.nome_completo} {me.numero_camisa ? <span className="text-primary">#{me.numero_camisa}</span> : null}
+                  {me.nome_completo}{" "}
+                  {me.numero_camisa ? <span className="text-primary">#{me.numero_camisa}</span> : null}
                 </h2>
-                <p className="text-sm text-muted-foreground">"{me.apelido}" — {me.posicao}</p>
+                <p className="text-sm text-muted-foreground">
+                  "{me.apelido}" — {me.posicao}
+                </p>
                 {me.cpf && <p className="text-sm text-muted-foreground">CPF: {me.cpf}</p>}
                 {me.profissao && <p className="text-sm text-muted-foreground">💼 {me.profissao}</p>}
                 {me.telefone && <p className="text-sm text-muted-foreground">📞 {me.telefone}</p>}
@@ -278,14 +289,25 @@ function JogadoresPage() {
               </Button>
             </div>
             {editing && (
-              <form onSubmit={handleUpdateProfile} className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-6">
+              <form
+                onSubmit={handleUpdateProfile}
+                className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-6"
+              >
                 <div className="space-y-2 md:col-span-2">
                   <Label>Nome completo</Label>
-                  <Input value={editForm.nome_completo} onChange={(e) => setEditForm((f) => ({ ...f, nome_completo: e.target.value }))} required />
+                  <Input
+                    value={editForm.nome_completo}
+                    onChange={(e) => setEditForm((f) => ({ ...f, nome_completo: e.target.value }))}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Apelido</Label>
-                  <Input value={editForm.apelido} onChange={(e) => setEditForm((f) => ({ ...f, apelido: e.target.value }))} required />
+                  <Input
+                    value={editForm.apelido}
+                    onChange={(e) => setEditForm((f) => ({ ...f, apelido: e.target.value }))}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>CPF</Label>
@@ -293,15 +315,25 @@ function JogadoresPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Telefone</Label>
-                  <Input value={editForm.telefone} onChange={(e) => setEditForm((f) => ({ ...f, telefone: e.target.value }))} />
+                  <Input
+                    value={editForm.telefone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, telefone: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
-                  <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+                  <Input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Profissão</Label>
-                  <Input value={editForm.profissao} onChange={(e) => setEditForm((f) => ({ ...f, profissao: e.target.value }))} />
+                  <Input
+                    value={editForm.profissao}
+                    onChange={(e) => setEditForm((f) => ({ ...f, profissao: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Posição</Label>
@@ -310,16 +342,28 @@ function JogadoresPage() {
                     onChange={(e) => setEditForm((f) => ({ ...f, posicao: e.target.value }))}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
                   >
-                    {POSICOES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {POSICOES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <Label>Número da camisa</Label>
-                  <Input type="number" min={1} max={200} value={editForm.numero_camisa} onChange={(e) => setEditForm((f) => ({ ...f, numero_camisa: e.target.value }))} />
+                  <Input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={editForm.numero_camisa}
+                    onChange={(e) => setEditForm((f) => ({ ...f, numero_camisa: e.target.value }))}
+                  />
                 </div>
                 {editMsg && <p className="md:col-span-2 text-sm text-muted-foreground">{editMsg}</p>}
                 <div className="md:col-span-2">
-                  <Button type="submit" disabled={savingEdit}>{savingEdit ? "Salvando..." : "Salvar alterações"}</Button>
+                  <Button type="submit" disabled={savingEdit}>
+                    {savingEdit ? "Salvando..." : "Salvar alterações"}
+                  </Button>
                 </div>
               </form>
             )}
@@ -341,15 +385,33 @@ function JogadoresPage() {
             <form onSubmit={handleUpload} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2 md:col-span-3">
                 <Label htmlFor="comprovante">Comprovante *</Label>
-                <Input id="comprovante" type="file" accept="image/*,application/pdf" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <Input
+                  id="comprovante"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  required
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ref">Referência (mês)</Label>
-                <Input id="ref" placeholder="Ex: 05/2026" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
+                <Input
+                  id="ref"
+                  placeholder="Ex: 05/2026"
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>
-                <Input id="valor" type="number" step="0.01" min="0" value={valor} onChange={(e) => setValor(e.target.value)} />
+                <Input
+                  id="valor"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                />
               </div>
               <div className="flex items-end">
                 <Button type="submit" className="w-full" disabled={uploading || !file}>
@@ -367,14 +429,30 @@ function JogadoresPage() {
             <h2 className="text-xl font-bold text-foreground mb-3">Meus comprovantes</h2>
             <div className="space-y-2">
               {pagamentos.map((p) => (
-                <div key={p.id} className="rounded-xl border border-white/10 bg-card/60 p-3 flex items-center justify-between gap-3">
+                <div
+                  key={p.id}
+                  className="rounded-xl border border-white/10 bg-card/60 p-3 flex items-center justify-between gap-3"
+                >
                   <div className="min-w-0">
-                    <p className="text-sm text-foreground truncate">{p.referencia ?? "—"} {p.valor ? `· R$ ${p.valor}` : ""}</p>
+                    <p className="text-sm text-foreground truncate">
+                      {p.referencia ?? "—"} {p.valor ? `· R$ ${p.valor}` : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground">{new Date(p.criado_em).toLocaleString("pt-BR")}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}>{p.status}</span>
-                    <a href={p.comprovante_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">ver</a>
+                    <span
+                      className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}
+                    >
+                      {p.status}
+                    </span>
+                    <a
+                      href={p.comprovante_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      ver
+                    </a>
                   </div>
                 </div>
               ))}
@@ -388,7 +466,8 @@ function JogadoresPage() {
             {inscricoes.filter((i) => i.status === "pendente").length > 0 && (
               <div className="mb-6 rounded-2xl border border-accent/40 bg-accent/10 p-4">
                 <p className="text-sm font-semibold text-accent">
-                  🔔 {inscricoes.filter((i) => i.status === "pendente").length} nova(s) inscrição(ões) aguardando análise
+                  🔔 {inscricoes.filter((i) => i.status === "pendente").length} nova(s) inscrição(ões) aguardando
+                  análise
                 </p>
               </div>
             )}
@@ -411,15 +490,25 @@ function JogadoresPage() {
                         {i.numero_camisa ? ` · #${i.numero_camisa}` : ""}
                       </p>
                       <p className="text-xs text-accent mt-1">Indicado por: {i.quem_indicou}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(i.criado_em).toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(i.criado_em).toLocaleString("pt-BR")}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs rounded-full px-2 py-1 ${i.status === "aprovado" ? "bg-green-500/20 text-green-300" : i.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}>{i.status}</span>
+                      <span
+                        className={`text-xs rounded-full px-2 py-1 ${i.status === "aprovado" ? "bg-green-500/20 text-green-300" : i.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}
+                      >
+                        {i.status}
+                      </span>
                       {i.status !== "aprovado" && (
-                        <Button size="sm" onClick={() => setInscricaoStatus(i.id, "aprovado")}>Aprovar</Button>
+                        <Button size="sm" onClick={() => setInscricaoStatus(i.id, "aprovado")}>
+                          Aprovar
+                        </Button>
                       )}
                       {i.status !== "rejeitado" && (
-                        <Button size="sm" variant="outline" onClick={() => setInscricaoStatus(i.id, "rejeitado")}>Rejeitar</Button>
+                        <Button size="sm" variant="outline" onClick={() => setInscricaoStatus(i.id, "rejeitado")}>
+                          Rejeitar
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -433,9 +522,12 @@ function JogadoresPage() {
               {jogadores.map((p) => (
                 <div key={p.id} className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl p-4">
                   <p className="font-semibold text-foreground">
-                    {p.nome_completo} {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
+                    {p.nome_completo}{" "}
+                    {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
                   </p>
-                  <p className="text-xs text-muted-foreground">"{p.apelido}" · {p.posicao}</p>
+                  <p className="text-xs text-muted-foreground">
+                    "{p.apelido}" · {p.posicao}
+                  </p>
                   <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                     {p.cpf && <p>CPF: {p.cpf}</p>}
                     {p.telefone && <p>📞 {p.telefone}</p>}
@@ -452,25 +544,47 @@ function JogadoresPage() {
               {pagamentos.map((p) => {
                 const j = jogadores.find((x) => x.id === p.jogador_id);
                 return (
-                  <div key={p.id} className="rounded-xl border border-white/10 bg-card/60 p-3 flex flex-wrap items-center justify-between gap-3">
+                  <div
+                    key={p.id}
+                    className="rounded-xl border border-white/10 bg-card/60 p-3 flex flex-wrap items-center justify-between gap-3"
+                  >
                     <div className="min-w-0">
-                      <p className="text-sm text-foreground">{j?.nome_completo ?? p.jogador_id} — {p.referencia ?? "—"} {p.valor ? `· R$ ${p.valor}` : ""}</p>
+                      <p className="text-sm text-foreground">
+                        {j?.nome_completo ?? p.jogador_id} — {p.referencia ?? "—"} {p.valor ? `· R$ ${p.valor}` : ""}
+                      </p>
                       <p className="text-xs text-muted-foreground">{new Date(p.criado_em).toLocaleString("pt-BR")}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <a href={p.comprovante_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">ver comprovante</a>
-                      <span className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}>{p.status}</span>
+                      <a
+                        href={p.comprovante_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        ver comprovante
+                      </a>
+                      <span
+                        className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}
+                      >
+                        {p.status}
+                      </span>
                       {p.status !== "confirmado" && (
-                        <Button size="sm" onClick={() => setStatus(p.id, "confirmado")}>Confirmar</Button>
+                        <Button size="sm" onClick={() => setStatus(p.id, "confirmado")}>
+                          Confirmar
+                        </Button>
                       )}
                       {p.status !== "rejeitado" && (
-                        <Button size="sm" variant="outline" onClick={() => setStatus(p.id, "rejeitado")}>Rejeitar</Button>
+                        <Button size="sm" variant="outline" onClick={() => setStatus(p.id, "rejeitado")}>
+                          Rejeitar
+                        </Button>
                       )}
                     </div>
                   </div>
                 );
               })}
-              {pagamentos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum comprovante enviado ainda.</p>}
+              {pagamentos.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum comprovante enviado ainda.</p>
+              )}
             </div>
           </>
         )}
