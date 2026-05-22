@@ -1,6 +1,5 @@
-// src/pages/Campeonato.tsx
 // Página pública — classificação, partidas e Hall da Fama
-
+import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Trophy, Beer, Calendar, CheckCircle2, Clock, Shield } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -327,3 +326,6 @@ export default function CampeonatoPage() {
     </div>
   );
 }
+
+export const Route = createFileRoute('/campeonato')({ component: CampeonatoPage });
+

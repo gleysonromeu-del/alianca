@@ -550,7 +550,7 @@ export default function AdminCampeonato() {
                     {t.gols_pro - t.gols_contra}
                   </span>
                   <button
-                    onClick={() => deletarTime.mutate({ id: t.id, campeonato_id: camp.id })}
+                    onClick={() => deletarTime.mutate(t.id)}
                     className="rounded-lg p-1.5 text-red-400/60 opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -610,7 +610,7 @@ export default function AdminCampeonato() {
                     <CheckCircle2 className="h-3.5 w-3.5" /> Registrar placar
                   </button>
                   <button
-                    onClick={() => deletarPartida.mutate({ id: p.id, campeonato_id: camp.id })}
+                    onClick={() => deletarPartida.mutate(p.id)}
                     className="rounded-xl p-1.5 text-red-400/50 opacity-0 hover:bg-red-500/10 hover:text-red-400 transition group-hover:opacity-100"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -655,7 +655,7 @@ export default function AdminCampeonato() {
                       Editar
                     </button>
                     <button
-                      onClick={() => deletarPartida.mutate({ id: p.id, campeonato_id: camp.id })}
+                      onClick={() => deletarPartida.mutate(p.id)}
                       className="rounded-xl p-1.5 text-red-400/50 opacity-0 hover:bg-red-500/10 hover:text-red-400 transition group-hover:opacity-100"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -670,3 +670,7 @@ export default function AdminCampeonato() {
     </>
   );
 }
+
+import { createFileRoute } from '@tanstack/react-router';
+export const Route = createFileRoute('/admin/campeonato')({ component: AdminCampeonato });
+
