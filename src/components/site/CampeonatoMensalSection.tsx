@@ -172,6 +172,10 @@ export function CampeonatoMensalSection() {
             </p>
           </motion.div>
         )}
+
+        <div className="mt-16">
+          <RankingAnual />
+        </div>
       </div>
     </section>
   );
