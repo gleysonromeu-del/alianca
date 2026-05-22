@@ -293,6 +293,10 @@ export default function CampeonatoPage() {
           </motion.section>
         </div>
 
+
+        {/* ── Ranking Anual (acumulado Jan–Dez) ── */}
+        <RankingAnual />
+
         {/* ── Hall da Fama ── */}
         <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <h2 className="mb-6 flex items-center gap-2 text-2xl font-black tracking-tight">
