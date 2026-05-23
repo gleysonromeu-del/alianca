@@ -565,12 +565,16 @@ export default function AdminCampeonato() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-accent">Admin</p>
-            <h1 className="text-3xl font-black tracking-tight">{formatMes(camp.mes)}</h1>
+            <h1 className="text-3xl font-black tracking-tight">
+              {camp.nome || "Campeonato sem nome"}
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground capitalize">{formatMes(camp.mes)}</p>
             <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Campeonato aberto
             </span>
           </div>
+
 
           <div className="flex flex-wrap gap-3">
             <button
