@@ -384,6 +384,7 @@ export default function AdminCampeonato() {
   const { data: partidas = [] } = usePartidas(camp?.id);
 
   const criarCampeonato = useCriarCampeonato();
+  const atualizarCampeonato = useAtualizarCampeonato();
   const deletarTime = useDeletarTime();
   const deletarPartida = useDeletarPartida();
   const encerrarCampeonato = useEncerrarCampeonato();
@@ -392,6 +393,25 @@ export default function AdminCampeonato() {
   const [modalPartida, setModalPartida] = useState(false);
   const [modalPlacar, setModalPlacar] = useState<Partida | null>(null);
   const [confirmEncerrar, setConfirmEncerrar] = useState(false);
+
+  // Form: criar campeonato (com nome e mês)
+  const hoje = new Date();
+  const mesAtualISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  const [novoMes, setNovoMes] = useState(mesAtualISO);
+  const [novoNome, setNovoNome] = useState("");
+
+  // Form: editar campeonato atual (nome, mês, campeão)
+  const [editNome, setEditNome] = useState("");
+  const [editMes, setEditMes] = useState("");
+  const [editCampeao, setEditCampeao] = useState<string>("");
+  useEffect(() => {
+    if (camp) {
+      setEditNome(camp.nome ?? "");
+      setEditMes(camp.mes?.slice(0, 7) ?? "");
+      setEditCampeao(camp.campeao_time_id ?? "");
+    }
+  }, [camp]);
+
 
   useEffect(() => {
     if (loadingAuth) return;
