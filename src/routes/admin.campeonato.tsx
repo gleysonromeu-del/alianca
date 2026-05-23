@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   LogOut,
+  Users,
 } from "lucide-react";
 import {
   useCampeonatoAtual,
