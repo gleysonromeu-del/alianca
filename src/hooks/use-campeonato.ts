@@ -280,10 +280,14 @@ export function useCampeonatoRealtime() {
 export function useCriarCampeonato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (mes: string) => {
+    mutationFn: async (input: { mes: string; nome?: string | null } | string) => {
+      const payload =
+        typeof input === "string"
+          ? { mes: input, status: "aberto" as const }
+          : { mes: input.mes, nome: input.nome ?? null, status: "aberto" as const };
       const { data, error } = await supabase
         .from("campeonato_mensal")
-        .insert({ mes, status: "aberto" })
+        .insert(payload)
         .select()
         .single();
       if (error) throw error;
@@ -296,6 +300,30 @@ export function useCriarCampeonato() {
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
+
+export interface AtualizarCampeonatoInput {
+  id: string;
+  nome?: string | null;
+  mes?: string;
+  campeao_time_id?: string | null;
+  pagador_cerveja_time_id?: string | null;
+}
+
+export function useAtualizarCampeonato() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: AtualizarCampeonatoInput) => {
+      const { error } = await supabase.from("campeonato_mensal").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campeonato"] });
+      toast.success("Campeonato atualizado");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
 
 export function useJogadores() {
   return useQuery({
