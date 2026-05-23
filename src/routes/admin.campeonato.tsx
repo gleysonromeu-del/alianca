@@ -442,16 +442,27 @@ export default function AdminCampeonato() {
   const partidasAgendadas = partidas.filter((p) => p.status === "agendada");
   const partidasFinalizadas = partidas.filter((p) => p.status === "finalizada");
 
-  const handleCriarMesAtual = async () => {
-    const mes = new Date();
-    mes.setDate(1);
-    await criarCampeonato.mutateAsync(mes.toISOString().slice(0, 10));
+  const handleCriarCampeonato = async () => {
+    // novoMes vem como "YYYY-MM"; persistir como YYYY-MM-01
+    const mesISO = `${novoMes}-01`;
+    await criarCampeonato.mutateAsync({ mes: mesISO, nome: novoNome.trim() || null });
+    setNovoNome("");
   };
 
   const handleEncerrar = async () => {
     if (!camp) return;
     await encerrarCampeonato.mutateAsync(camp.id);
     setConfirmEncerrar(false);
+  };
+
+  const handleSalvarEdicao = async () => {
+    if (!camp) return;
+    await atualizarCampeonato.mutateAsync({
+      id: camp.id,
+      nome: editNome.trim() || null,
+      mes: editMes ? `${editMes}-01` : undefined,
+      campeao_time_id: editCampeao || null,
+    });
   };
 
   // ── Estado vazio: sem campeonato ──
@@ -465,21 +476,47 @@ export default function AdminCampeonato() {
 
   if (!camp) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
         <Trophy className="mx-auto mb-4 h-16 w-16 text-accent/40" />
         <h2 className="text-2xl font-black">Nenhum campeonato aberto</h2>
-        <p className="mt-2 text-muted-foreground">Crie o campeonato deste mês para começar.</p>
-        <button
-          onClick={handleCriarMesAtual}
-          disabled={criarCampeonato.isPending}
-          className="mt-6 flex items-center gap-2 mx-auto rounded-2xl bg-accent px-6 py-3 font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {criarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Criar campeonato de {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-        </button>
+        <p className="mt-2 text-muted-foreground">Crie o campeonato definindo o mês e o nome.</p>
+
+        <div className="mt-6 space-y-3 text-left">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Mês de referência
+            </label>
+            <input
+              type="month"
+              value={novoMes}
+              onChange={(e) => setNovoMes(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Nome do campeonato
+            </label>
+            <input
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Ex: Champions League Aliança 2026"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+            />
+          </div>
+          <button
+            onClick={handleCriarCampeonato}
+            disabled={!novoMes || criarCampeonato.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-6 py-3 font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {criarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Criar campeonato
+          </button>
+        </div>
       </div>
     );
   }
+
 
   return (
     <>
