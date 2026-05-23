@@ -24,6 +24,7 @@ import {
   useTimes,
   usePartidas,
   useCriarCampeonato,
+  useAtualizarCampeonato,
   useCriarTime,
   useDeletarTime,
   useCriarPartida,
@@ -35,6 +36,7 @@ import {
   type Partida,
   type Time,
 } from "@/hooks/use-campeonato";
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
