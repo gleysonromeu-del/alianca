@@ -534,6 +534,12 @@ export default function AdminCampeonato() {
             >
               <Beer className="h-4 w-4" /> Encerrar mês
             </button>
+            <Link
+              to="/jogadores"
+              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10 transition"
+            >
+              <Users className="h-4 w-4" /> Cadastros & Comprovantes
+            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
