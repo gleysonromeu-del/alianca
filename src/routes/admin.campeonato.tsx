@@ -612,10 +612,8 @@ export default function AdminCampeonato() {
           </div>
         </div>
 
-        {/* ── Times ── */}
-        </div>
-
         {/* ── Editar campeonato (nome, mês, campeão) ── */}
+
         <section className="rounded-2xl border border-white/10 bg-white/3 p-5">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
             <Trophy className="h-4 w-4 text-accent" /> Dados do campeonato
