@@ -283,7 +283,7 @@ export function useCriarCampeonato() {
     mutationFn: async (input: { mes: string; nome?: string | null } | string) => {
       const payload =
         typeof input === "string"
-          ? { mes: input, status: "aberto" as const }
+          ? { mes: input, nome: null as string | null, status: "aberto" as const }
           : { mes: input.mes, nome: input.nome ?? null, status: "aberto" as const };
       const { data, error } = await supabase
         .from("campeonato_mensal")
@@ -293,6 +293,7 @@ export function useCriarCampeonato() {
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["campeonato"] });
       toast.success("Campeonato criado com sucesso!");
