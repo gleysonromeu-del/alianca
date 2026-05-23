@@ -18,11 +18,16 @@ exception when duplicate_object then null; end $$;
 create table if not exists public.campeonato_mensal (
   id uuid primary key default gen_random_uuid(),
   mes date not null unique,
+  nome text,
   status public.campeonato_status not null default 'aberto',
   campeao_time_id uuid,
   pagador_cerveja_time_id uuid,
   created_at timestamptz not null default now()
 );
+
+-- Garante a coluna 'nome' em bases existentes (idempotente)
+alter table public.campeonato_mensal add column if not exists nome text;
+
 
 create table if not exists public.times (
   id uuid primary key default gen_random_uuid(),
