@@ -10,11 +10,13 @@ export type HistoricoTipo = "campeao" | "pagador_cerveja";
 export interface Campeonato {
   id: string;
   mes: string;
+  nome: string | null;
   status: CampeonatoStatus;
   campeao_time_id: string | null;
   pagador_cerveja_time_id: string | null;
   created_at: string;
 }
+
 
 export interface Time {
   id: string;
