@@ -613,7 +613,67 @@ export default function AdminCampeonato() {
         </div>
 
         {/* ── Times ── */}
+        </div>
+
+        {/* ── Editar campeonato (nome, mês, campeão) ── */}
+        <section className="rounded-2xl border border-white/10 bg-white/3 p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            <Trophy className="h-4 w-4 text-accent" /> Dados do campeonato
+          </h2>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Nome do campeonato
+              </label>
+              <input
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                placeholder="Ex: Champions League Aliança 2026"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Mês de referência
+              </label>
+              <input
+                type="month"
+                value={editMes}
+                onChange={(e) => setEditMes(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Campeão
+              </label>
+              <select
+                value={editCampeao}
+                onChange={(e) => setEditCampeao(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/50"
+              >
+                <option value="">— Sem campeão definido —</option>
+                {times.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleSalvarEdicao}
+              disabled={atualizarCampeonato.isPending}
+              className="flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {atualizarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Salvar alterações
+            </button>
+          </div>
+        </section>
+
+        {/* ── Times ── */}
         <section>
+
           <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
             <Shield className="h-5 w-5 text-accent" /> Times ({times.length})
           </h2>
