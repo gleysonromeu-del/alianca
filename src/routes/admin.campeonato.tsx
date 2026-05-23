@@ -24,6 +24,7 @@ import {
   useTimes,
   usePartidas,
   useCriarCampeonato,
+  useAtualizarCampeonato,
   useCriarTime,
   useDeletarTime,
   useCriarPartida,
@@ -35,6 +36,7 @@ import {
   type Partida,
   type Time,
 } from "@/hooks/use-campeonato";
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -382,6 +384,7 @@ export default function AdminCampeonato() {
   const { data: partidas = [] } = usePartidas(camp?.id);
 
   const criarCampeonato = useCriarCampeonato();
+  const atualizarCampeonato = useAtualizarCampeonato();
   const deletarTime = useDeletarTime();
   const deletarPartida = useDeletarPartida();
   const encerrarCampeonato = useEncerrarCampeonato();
@@ -390,6 +393,25 @@ export default function AdminCampeonato() {
   const [modalPartida, setModalPartida] = useState(false);
   const [modalPlacar, setModalPlacar] = useState<Partida | null>(null);
   const [confirmEncerrar, setConfirmEncerrar] = useState(false);
+
+  // Form: criar campeonato (com nome e mês)
+  const hoje = new Date();
+  const mesAtualISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  const [novoMes, setNovoMes] = useState(mesAtualISO);
+  const [novoNome, setNovoNome] = useState("");
+
+  // Form: editar campeonato atual (nome, mês, campeão)
+  const [editNome, setEditNome] = useState("");
+  const [editMes, setEditMes] = useState("");
+  const [editCampeao, setEditCampeao] = useState<string>("");
+  useEffect(() => {
+    if (camp) {
+      setEditNome(camp.nome ?? "");
+      setEditMes(camp.mes?.slice(0, 7) ?? "");
+      setEditCampeao(camp.campeao_time_id ?? "");
+    }
+  }, [camp]);
+
 
   useEffect(() => {
     if (loadingAuth) return;
@@ -420,16 +442,27 @@ export default function AdminCampeonato() {
   const partidasAgendadas = partidas.filter((p) => p.status === "agendada");
   const partidasFinalizadas = partidas.filter((p) => p.status === "finalizada");
 
-  const handleCriarMesAtual = async () => {
-    const mes = new Date();
-    mes.setDate(1);
-    await criarCampeonato.mutateAsync(mes.toISOString().slice(0, 10));
+  const handleCriarCampeonato = async () => {
+    // novoMes vem como "YYYY-MM"; persistir como YYYY-MM-01
+    const mesISO = `${novoMes}-01`;
+    await criarCampeonato.mutateAsync({ mes: mesISO, nome: novoNome.trim() || null });
+    setNovoNome("");
   };
 
   const handleEncerrar = async () => {
     if (!camp) return;
     await encerrarCampeonato.mutateAsync(camp.id);
     setConfirmEncerrar(false);
+  };
+
+  const handleSalvarEdicao = async () => {
+    if (!camp) return;
+    await atualizarCampeonato.mutateAsync({
+      id: camp.id,
+      nome: editNome.trim() || null,
+      mes: editMes ? `${editMes}-01` : undefined,
+      campeao_time_id: editCampeao || null,
+    });
   };
 
   // ── Estado vazio: sem campeonato ──
@@ -443,21 +476,47 @@ export default function AdminCampeonato() {
 
   if (!camp) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
         <Trophy className="mx-auto mb-4 h-16 w-16 text-accent/40" />
         <h2 className="text-2xl font-black">Nenhum campeonato aberto</h2>
-        <p className="mt-2 text-muted-foreground">Crie o campeonato deste mês para começar.</p>
-        <button
-          onClick={handleCriarMesAtual}
-          disabled={criarCampeonato.isPending}
-          className="mt-6 flex items-center gap-2 mx-auto rounded-2xl bg-accent px-6 py-3 font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {criarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Criar campeonato de {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-        </button>
+        <p className="mt-2 text-muted-foreground">Crie o campeonato definindo o mês e o nome.</p>
+
+        <div className="mt-6 space-y-3 text-left">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Mês de referência
+            </label>
+            <input
+              type="month"
+              value={novoMes}
+              onChange={(e) => setNovoMes(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Nome do campeonato
+            </label>
+            <input
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Ex: Champions League Aliança 2026"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+            />
+          </div>
+          <button
+            onClick={handleCriarCampeonato}
+            disabled={!novoMes || criarCampeonato.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-6 py-3 font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {criarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Criar campeonato
+          </button>
+        </div>
       </div>
     );
   }
+
 
   return (
     <>
@@ -506,12 +565,16 @@ export default function AdminCampeonato() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-accent">Admin</p>
-            <h1 className="text-3xl font-black tracking-tight">{formatMes(camp.mes)}</h1>
+            <h1 className="text-3xl font-black tracking-tight">
+              {camp.nome || "Campeonato sem nome"}
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground capitalize">{formatMes(camp.mes)}</p>
             <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Campeonato aberto
             </span>
           </div>
+
 
           <div className="flex flex-wrap gap-3">
             <button
@@ -549,8 +612,66 @@ export default function AdminCampeonato() {
           </div>
         </div>
 
+        {/* ── Editar campeonato (nome, mês, campeão) ── */}
+
+        <section className="rounded-2xl border border-white/10 bg-white/3 p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            <Trophy className="h-4 w-4 text-accent" /> Dados do campeonato
+          </h2>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Nome do campeonato
+              </label>
+              <input
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                placeholder="Ex: Champions League Aliança 2026"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Mês de referência
+              </label>
+              <input
+                type="month"
+                value={editMes}
+                onChange={(e) => setEditMes(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Campeão
+              </label>
+              <select
+                value={editCampeao}
+                onChange={(e) => setEditCampeao(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/50"
+              >
+                <option value="">— Sem campeão definido —</option>
+                {times.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleSalvarEdicao}
+              disabled={atualizarCampeonato.isPending}
+              className="flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {atualizarCampeonato.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Salvar alterações
+            </button>
+          </div>
+        </section>
+
         {/* ── Times ── */}
         <section>
+
           <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
             <Shield className="h-5 w-5 text-accent" /> Times ({times.length})
           </h2>
