@@ -315,6 +315,9 @@ export interface AtualizarCampeonatoInput {
   nome?: string | null;
   mes?: string;
   campeao_time_id?: string | null;
+  campeao_nome?: string | null;
+  cartoes_amarelos?: CartaoEntry[];
+  cartoes_vermelhos?: CartaoEntry[];
   pagador_cerveja_time_id?: string | null;
 }
 
