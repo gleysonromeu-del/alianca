@@ -320,9 +320,11 @@ export default function CampeonatoPage() {
                 <p className="mt-2 text-lg font-black">{h.nome_time_snapshot ?? "—"}</p>
                 {h.jogadores_snapshot && h.jogadores_snapshot.length > 0 && (
                   <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-                    {h.jogadores_snapshot.map((j) => j.apelido ?? j.nome).join(", ")}
-                  </p>
-                )}
+                   {Array.isArray(h.jogadores_snapshot) && h.jogadores_snapshot.length > 0 && (
+  <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+    {h.jogadores_snapshot.map((j) => j.apelido ?? j.nome).join(", ")}
+  </p>
+)}
               </motion.div>
             ))}
           </div>
