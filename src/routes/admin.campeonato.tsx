@@ -653,19 +653,32 @@ export default function AdminCampeonato() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Campeão
+                Campeão (nome livre)
               </label>
-              <select
-                value={editCampeao}
-                onChange={(e) => setEditCampeao(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/50"
-              >
-                <option value="">— Sem campeão definido —</option>
-                {times.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nome}</option>
-                ))}
-              </select>
+              <input
+                value={editCampeaoNome}
+                onChange={(e) => setEditCampeaoNome(e.target.value)}
+                placeholder="Ex: Real Madrid Aliança"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
             </div>
+          </div>
+
+          {/* Cartões amarelos e vermelhos */}
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <CartoesEditor
+              titulo="Cartões amarelos"
+              cor="amber"
+              entries={editAmarelos}
+              onChange={setEditAmarelos}
+            />
+            <CartoesEditor
+              titulo="Cartões vermelhos"
+              cor="red"
+              entries={editVermelhos}
+              onChange={setEditVermelhos}
+            />
+          </div>
           </div>
           <div className="mt-4 flex justify-end">
             <button
