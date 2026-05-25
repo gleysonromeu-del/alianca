@@ -534,6 +534,19 @@ export default function AdminCampeonato() {
   const deletarPartida = useDeletarPartida();
   const encerrarCampeonato = useEncerrarCampeonato();
 
+  // Destaques anuais
+  const anoAtual = new Date().getFullYear();
+  const { data: destaques } = useDestaquesAnuais(anoAtual);
+  const salvarDestaques = useSalvarDestaquesAnuais();
+  const [artilharia, setArtilharia] = useState<DestaqueEntry[]>([]);
+  const [assistencias, setAssistencias] = useState<DestaqueEntry[]>([]);
+  useEffect(() => {
+    if (destaques) {
+      setArtilharia(destaques.artilharia);
+      setAssistencias(destaques.assistencias);
+    }
+  }, [destaques]);
+
   const [modalTime, setModalTime] = useState(false);
   const [modalPartida, setModalPartida] = useState(false);
   const [modalPlacar, setModalPlacar] = useState<Partida | null>(null);
