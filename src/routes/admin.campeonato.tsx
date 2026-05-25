@@ -32,9 +32,13 @@ import {
   useDeletarPartida,
   useEncerrarCampeonato,
   useCampeonatoRealtime,
+  useDestaquesAnuais,
+  useSalvarDestaquesAnuais,
   formatMes,
   type Partida,
   type Time,
+  type CartaoEntry,
+  type DestaqueEntry,
 } from "@/hooks/use-campeonato";
 
 import { useQuery } from "@tanstack/react-query";
