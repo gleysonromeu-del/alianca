@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Crown, Beer, Trophy, ArrowRight } from "lucide-react";
+import { Crown, Beer, Trophy, ArrowRight, Square } from "lucide-react";
 import {
   useCampeonatoAtual,
   useTimes,
