@@ -845,6 +845,48 @@ export default function AdminCampeonato() {
           </div>
         </section>
 
+        {/* ── Destaques Anuais (acumulativos) ── */}
+        <section className="rounded-2xl border border-white/10 bg-white/3 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              <Trophy className="h-4 w-4 text-accent" /> Destaques anuais — {anoAtual}
+            </h2>
+            <p className="text-xs text-muted-foreground">Acumulativo de janeiro a dezembro (não zera)</p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <DestaquesEditor
+              titulo="Artilharia"
+              rotuloTotal="Gols"
+              entries={artilharia}
+              onChange={setArtilharia}
+            />
+            <DestaquesEditor
+              titulo="Assistências"
+              rotuloTotal="Assist."
+              entries={assistencias}
+              onChange={setAssistencias}
+            />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() =>
+                salvarDestaques.mutate({
+                  ano: anoAtual,
+                  artilharia: artilharia.filter((e) => e.nome.trim()),
+                  assistencias: assistencias.filter((e) => e.nome.trim()),
+                })
+              }
+              disabled={salvarDestaques.isPending}
+              className="flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {salvarDestaques.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Salvar destaques
+            </button>
+          </div>
+        </section>
+
+
+
         {/* ── Times ── */}
         <section>
 
