@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Crown, Beer, Trophy, ArrowRight } from "lucide-react";
+import { Crown, Beer, Trophy, ArrowRight, Square } from "lucide-react";
 import {
   useCampeonatoAtual,
   useTimes,
@@ -66,7 +66,21 @@ export function CampeonatoMensalSection() {
                 Campeão atual
               </span>
             </div>
-            {campeao ? (
+            {camp?.campeao_nome ? (
+              <div className="mt-6 flex items-center gap-5">
+                <div className="grid h-24 w-24 place-items-center rounded-2xl bg-accent/20 border border-accent/30">
+                  <Trophy className="h-10 w-10 text-accent" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-black tracking-tight md:text-3xl">
+                    {camp.campeao_nome}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {camp.nome ?? formatMes(camp.mes)}
+                  </p>
+                </div>
+              </div>
+            ) : campeao ? (
               <div className="mt-6 flex items-center gap-5">
                 <div
                   className="grid h-24 w-24 place-items-center rounded-2xl bg-white/10 border border-white/15 overflow-hidden"
@@ -171,6 +185,44 @@ export function CampeonatoMensalSection() {
               <span className="font-bold">{pagador.nome}</span>
             </p>
           </motion.div>
+        )}
+
+        {((camp?.cartoes_amarelos?.length ?? 0) > 0 ||
+          (camp?.cartoes_vermelhos?.length ?? 0) > 0) && (
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {(camp?.cartoes_amarelos?.length ?? 0) > 0 && (
+              <div className="rounded-2xl glass p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Square className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider">Cartões amarelos</h4>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {camp!.cartoes_amarelos.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between border-t border-white/5 pt-1.5 first:border-0 first:pt-0">
+                      <span className="font-semibold">{c.nome}</span>
+                      {c.numero && <span className="text-xs text-muted-foreground">#{c.numero}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(camp?.cartoes_vermelhos?.length ?? 0) > 0 && (
+              <div className="rounded-2xl glass p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Square className="h-4 w-4 fill-red-500 text-red-500" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider">Cartões vermelhos</h4>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {camp!.cartoes_vermelhos.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between border-t border-white/5 pt-1.5 first:border-0 first:pt-0">
+                      <span className="font-semibold">{c.nome}</span>
+                      {c.numero && <span className="text-xs text-muted-foreground">#{c.numero}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="mt-16">

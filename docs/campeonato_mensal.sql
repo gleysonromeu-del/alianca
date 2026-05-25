@@ -25,8 +25,30 @@ create table if not exists public.campeonato_mensal (
   created_at timestamptz not null default now()
 );
 
--- Garante a coluna 'nome' em bases existentes (idempotente)
+-- Garante colunas em bases existentes (idempotente)
 alter table public.campeonato_mensal add column if not exists nome text;
+alter table public.campeonato_mensal add column if not exists campeao_nome text;
+alter table public.campeonato_mensal add column if not exists cartoes_amarelos jsonb not null default '[]'::jsonb;
+alter table public.campeonato_mensal add column if not exists cartoes_vermelhos jsonb not null default '[]'::jsonb;
+
+-- Tabela: Destaques anuais (artilharia + assistências acumulativos por ano)
+create table if not exists public.destaques_anuais (
+  ano int primary key,
+  artilharia jsonb not null default '[]'::jsonb,    -- [{nome, numero, gols}]
+  assistencias jsonb not null default '[]'::jsonb,  -- [{nome, numero, assistencias}]
+  updated_at timestamptz not null default now()
+);
+alter table public.destaques_anuais enable row level security;
+do $$ begin
+  drop policy if exists "destaques_sel" on public.destaques_anuais;
+  create policy "destaques_sel" on public.destaques_anuais for select using (true);
+  drop policy if exists "destaques_ai" on public.destaques_anuais;
+  create policy "destaques_ai" on public.destaques_anuais for insert with check (public.has_role(auth.uid(), 'admin'));
+  drop policy if exists "destaques_au" on public.destaques_anuais;
+  create policy "destaques_au" on public.destaques_anuais for update using (public.has_role(auth.uid(), 'admin'));
+  drop policy if exists "destaques_ad" on public.destaques_anuais;
+  create policy "destaques_ad" on public.destaques_anuais for delete using (public.has_role(auth.uid(), 'admin'));
+end $$;
 
 
 create table if not exists public.times (

@@ -32,9 +32,13 @@ import {
   useDeletarPartida,
   useEncerrarCampeonato,
   useCampeonatoRealtime,
+  useDestaquesAnuais,
+  useSalvarDestaquesAnuais,
   formatMes,
   type Partida,
   type Time,
+  type CartaoEntry,
+  type DestaqueEntry,
 } from "@/hooks/use-campeonato";
 
 import { useQuery } from "@tanstack/react-query";
@@ -370,6 +374,147 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
   );
 }
 
+// ─── Editor: Cartões (lista nome + número) ────────────────────────────────────
+
+function CartoesEditor({
+  titulo,
+  cor,
+  entries,
+  onChange,
+}: {
+  titulo: string;
+  cor: "amber" | "red";
+  entries: CartaoEntry[];
+  onChange: (next: CartaoEntry[]) => void;
+}) {
+  const badge =
+    cor === "amber"
+      ? "bg-amber-400 text-black"
+      : "bg-red-500 text-white";
+  const add = () => onChange([...entries, { nome: "", numero: "" }]);
+  const upd = (i: number, patch: Partial<CartaoEntry>) =>
+    onChange(entries.map((e, k) => (k === i ? { ...e, ...patch } : e)));
+  const del = (i: number) => onChange(entries.filter((_, k) => k !== i));
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`grid h-5 w-4 place-items-center rounded-sm text-[10px] font-black ${badge}`} />
+          <h3 className="text-sm font-bold">{titulo}</h3>
+          <span className="text-xs text-muted-foreground">({entries.length})</span>
+        </div>
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/5"
+        >
+          <Plus className="h-3 w-3" /> Adicionar
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum cartão registrado.</p>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((e, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={e.nome}
+                onChange={(ev) => upd(i, { nome: ev.target.value })}
+                placeholder="Nome do jogador"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                value={e.numero}
+                onChange={(ev) => upd(i, { numero: ev.target.value })}
+                placeholder="Nº"
+                className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={() => del(i)}
+                className="rounded-lg p-1.5 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Editor: Destaques Anuais (artilharia + assistências) ─────────────────────
+
+function DestaquesEditor({
+  titulo,
+  rotuloTotal,
+  entries,
+  onChange,
+}: {
+  titulo: string;
+  rotuloTotal: string;
+  entries: DestaqueEntry[];
+  onChange: (next: DestaqueEntry[]) => void;
+}) {
+  const add = () => onChange([...entries, { nome: "", numero: "", total: 0 }]);
+  const upd = (i: number, patch: Partial<DestaqueEntry>) =>
+    onChange(entries.map((e, k) => (k === i ? { ...e, ...patch } : e)));
+  const del = (i: number) => onChange(entries.filter((_, k) => k !== i));
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-bold">{titulo}</h3>
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/5"
+        >
+          <Plus className="h-3 w-3" /> Adicionar
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum destaque cadastrado.</p>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((e, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={e.nome}
+                onChange={(ev) => upd(i, { nome: ev.target.value })}
+                placeholder="Nome do jogador"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                value={e.numero}
+                onChange={(ev) => upd(i, { numero: ev.target.value })}
+                placeholder="Nº"
+                className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                type="number"
+                min={0}
+                value={e.total}
+                onChange={(ev) => upd(i, { total: Number(ev.target.value) || 0 })}
+                placeholder={rotuloTotal}
+                title={rotuloTotal}
+                className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={() => del(i)}
+                className="rounded-lg p-1.5 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function AdminCampeonato() {
@@ -389,6 +534,19 @@ export default function AdminCampeonato() {
   const deletarPartida = useDeletarPartida();
   const encerrarCampeonato = useEncerrarCampeonato();
 
+  // Destaques anuais
+  const anoAtual = new Date().getFullYear();
+  const { data: destaques } = useDestaquesAnuais(anoAtual);
+  const salvarDestaques = useSalvarDestaquesAnuais();
+  const [artilharia, setArtilharia] = useState<DestaqueEntry[]>([]);
+  const [assistencias, setAssistencias] = useState<DestaqueEntry[]>([]);
+  useEffect(() => {
+    if (destaques) {
+      setArtilharia(destaques.artilharia);
+      setAssistencias(destaques.assistencias);
+    }
+  }, [destaques]);
+
   const [modalTime, setModalTime] = useState(false);
   const [modalPartida, setModalPartida] = useState(false);
   const [modalPlacar, setModalPlacar] = useState<Partida | null>(null);
@@ -400,15 +558,19 @@ export default function AdminCampeonato() {
   const [novoMes, setNovoMes] = useState(mesAtualISO);
   const [novoNome, setNovoNome] = useState("");
 
-  // Form: editar campeonato atual (nome, mês, campeão)
+  // Form: editar campeonato atual (nome, mês, campeão livre, cartões)
   const [editNome, setEditNome] = useState("");
   const [editMes, setEditMes] = useState("");
-  const [editCampeao, setEditCampeao] = useState<string>("");
+  const [editCampeaoNome, setEditCampeaoNome] = useState<string>("");
+  const [editAmarelos, setEditAmarelos] = useState<CartaoEntry[]>([]);
+  const [editVermelhos, setEditVermelhos] = useState<CartaoEntry[]>([]);
   useEffect(() => {
     if (camp) {
       setEditNome(camp.nome ?? "");
       setEditMes(camp.mes?.slice(0, 7) ?? "");
-      setEditCampeao(camp.campeao_time_id ?? "");
+      setEditCampeaoNome(camp.campeao_nome ?? "");
+      setEditAmarelos(camp.cartoes_amarelos ?? []);
+      setEditVermelhos(camp.cartoes_vermelhos ?? []);
     }
   }, [camp]);
 
@@ -461,7 +623,9 @@ export default function AdminCampeonato() {
       id: camp.id,
       nome: editNome.trim() || null,
       mes: editMes ? `${editMes}-01` : undefined,
-      campeao_time_id: editCampeao || null,
+      campeao_nome: editCampeaoNome.trim() || null,
+      cartoes_amarelos: editAmarelos.filter((c) => c.nome.trim() || c.numero.trim()),
+      cartoes_vermelhos: editVermelhos.filter((c) => c.nome.trim() || c.numero.trim()),
     });
   };
 
@@ -643,19 +807,31 @@ export default function AdminCampeonato() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Campeão
+                Campeão (nome livre)
               </label>
-              <select
-                value={editCampeao}
-                onChange={(e) => setEditCampeao(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/50"
-              >
-                <option value="">— Sem campeão definido —</option>
-                {times.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nome}</option>
-                ))}
-              </select>
+              <input
+                value={editCampeaoNome}
+                onChange={(e) => setEditCampeaoNome(e.target.value)}
+                placeholder="Ex: Real Madrid Aliança"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+              />
             </div>
+          </div>
+
+          {/* Cartões amarelos e vermelhos */}
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <CartoesEditor
+              titulo="Cartões amarelos"
+              cor="amber"
+              entries={editAmarelos}
+              onChange={setEditAmarelos}
+            />
+            <CartoesEditor
+              titulo="Cartões vermelhos"
+              cor="red"
+              entries={editVermelhos}
+              onChange={setEditVermelhos}
+            />
           </div>
           <div className="mt-4 flex justify-end">
             <button
@@ -668,6 +844,48 @@ export default function AdminCampeonato() {
             </button>
           </div>
         </section>
+
+        {/* ── Destaques Anuais (acumulativos) ── */}
+        <section className="rounded-2xl border border-white/10 bg-white/3 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              <Trophy className="h-4 w-4 text-accent" /> Destaques anuais — {anoAtual}
+            </h2>
+            <p className="text-xs text-muted-foreground">Acumulativo de janeiro a dezembro (não zera)</p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <DestaquesEditor
+              titulo="Artilharia"
+              rotuloTotal="Gols"
+              entries={artilharia}
+              onChange={setArtilharia}
+            />
+            <DestaquesEditor
+              titulo="Assistências"
+              rotuloTotal="Assist."
+              entries={assistencias}
+              onChange={setAssistencias}
+            />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() =>
+                salvarDestaques.mutate({
+                  ano: anoAtual,
+                  artilharia: artilharia.filter((e) => e.nome.trim()),
+                  assistencias: assistencias.filter((e) => e.nome.trim()),
+                })
+              }
+              disabled={salvarDestaques.isPending}
+              className="flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {salvarDestaques.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Salvar destaques
+            </button>
+          </div>
+        </section>
+
+
 
         {/* ── Times ── */}
         <section>
