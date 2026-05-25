@@ -7,12 +7,20 @@ export type CampeonatoStatus = "aberto" | "encerrado";
 export type PartidaStatus = "agendada" | "finalizada";
 export type HistoricoTipo = "campeao" | "pagador_cerveja";
 
+export interface CartaoEntry {
+  nome: string;
+  numero: string;
+}
+
 export interface Campeonato {
   id: string;
   mes: string;
   nome: string | null;
   status: CampeonatoStatus;
   campeao_time_id: string | null;
+  campeao_nome: string | null;
+  cartoes_amarelos: CartaoEntry[];
+  cartoes_vermelhos: CartaoEntry[];
   pagador_cerveja_time_id: string | null;
   created_at: string;
 }
