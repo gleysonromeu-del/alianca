@@ -679,7 +679,6 @@ export default function AdminCampeonato() {
               onChange={setEditVermelhos}
             />
           </div>
-          </div>
           <div className="mt-4 flex justify-end">
             <button
               onClick={handleSalvarEdicao}
