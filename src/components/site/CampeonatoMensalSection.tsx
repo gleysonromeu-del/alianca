@@ -66,7 +66,21 @@ export function CampeonatoMensalSection() {
                 Campeão atual
               </span>
             </div>
-            {campeao ? (
+            {camp?.campeao_nome ? (
+              <div className="mt-6 flex items-center gap-5">
+                <div className="grid h-24 w-24 place-items-center rounded-2xl bg-accent/20 border border-accent/30">
+                  <Trophy className="h-10 w-10 text-accent" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-black tracking-tight md:text-3xl">
+                    {camp.campeao_nome}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {camp.nome ?? formatMes(camp.mes)}
+                  </p>
+                </div>
+              </div>
+            ) : campeao ? (
               <div className="mt-6 flex items-center gap-5">
                 <div
                   className="grid h-24 w-24 place-items-center rounded-2xl bg-white/10 border border-white/15 overflow-hidden"
