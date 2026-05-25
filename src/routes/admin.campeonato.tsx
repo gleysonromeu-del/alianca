@@ -374,6 +374,147 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
   );
 }
 
+// ─── Editor: Cartões (lista nome + número) ────────────────────────────────────
+
+function CartoesEditor({
+  titulo,
+  cor,
+  entries,
+  onChange,
+}: {
+  titulo: string;
+  cor: "amber" | "red";
+  entries: CartaoEntry[];
+  onChange: (next: CartaoEntry[]) => void;
+}) {
+  const badge =
+    cor === "amber"
+      ? "bg-amber-400 text-black"
+      : "bg-red-500 text-white";
+  const add = () => onChange([...entries, { nome: "", numero: "" }]);
+  const upd = (i: number, patch: Partial<CartaoEntry>) =>
+    onChange(entries.map((e, k) => (k === i ? { ...e, ...patch } : e)));
+  const del = (i: number) => onChange(entries.filter((_, k) => k !== i));
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`grid h-5 w-4 place-items-center rounded-sm text-[10px] font-black ${badge}`} />
+          <h3 className="text-sm font-bold">{titulo}</h3>
+          <span className="text-xs text-muted-foreground">({entries.length})</span>
+        </div>
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/5"
+        >
+          <Plus className="h-3 w-3" /> Adicionar
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum cartão registrado.</p>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((e, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={e.nome}
+                onChange={(ev) => upd(i, { nome: ev.target.value })}
+                placeholder="Nome do jogador"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                value={e.numero}
+                onChange={(ev) => upd(i, { numero: ev.target.value })}
+                placeholder="Nº"
+                className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={() => del(i)}
+                className="rounded-lg p-1.5 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Editor: Destaques Anuais (artilharia + assistências) ─────────────────────
+
+function DestaquesEditor({
+  titulo,
+  rotuloTotal,
+  entries,
+  onChange,
+}: {
+  titulo: string;
+  rotuloTotal: string;
+  entries: DestaqueEntry[];
+  onChange: (next: DestaqueEntry[]) => void;
+}) {
+  const add = () => onChange([...entries, { nome: "", numero: "", total: 0 }]);
+  const upd = (i: number, patch: Partial<DestaqueEntry>) =>
+    onChange(entries.map((e, k) => (k === i ? { ...e, ...patch } : e)));
+  const del = (i: number) => onChange(entries.filter((_, k) => k !== i));
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-bold">{titulo}</h3>
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/5"
+        >
+          <Plus className="h-3 w-3" /> Adicionar
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum destaque cadastrado.</p>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((e, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={e.nome}
+                onChange={(ev) => upd(i, { nome: ev.target.value })}
+                placeholder="Nome do jogador"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                value={e.numero}
+                onChange={(ev) => upd(i, { numero: ev.target.value })}
+                placeholder="Nº"
+                className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <input
+                type="number"
+                min={0}
+                value={e.total}
+                onChange={(ev) => upd(i, { total: Number(ev.target.value) || 0 })}
+                placeholder={rotuloTotal}
+                title={rotuloTotal}
+                className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm outline-none focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={() => del(i)}
+                className="rounded-lg p-1.5 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function AdminCampeonato() {
