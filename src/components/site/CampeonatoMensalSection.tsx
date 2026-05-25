@@ -190,6 +190,47 @@ export function CampeonatoMensalSection() {
         <div className="mt-16">
           <RankingAnual />
         </div>
+        {((camp?.cartoes_amarelos?.length ?? 0) > 0 ||
+          (camp?.cartoes_vermelhos?.length ?? 0) > 0) && (
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {(camp?.cartoes_amarelos?.length ?? 0) > 0 && (
+              <div className="rounded-2xl glass p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Square className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider">Cartões amarelos</h4>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {camp!.cartoes_amarelos.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between border-t border-white/5 pt-1.5 first:border-0 first:pt-0">
+                      <span className="font-semibold">{c.nome}</span>
+                      {c.numero && <span className="text-xs text-muted-foreground">#{c.numero}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(camp?.cartoes_vermelhos?.length ?? 0) > 0 && (
+              <div className="rounded-2xl glass p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Square className="h-4 w-4 fill-red-500 text-red-500" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider">Cartões vermelhos</h4>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {camp!.cartoes_vermelhos.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between border-t border-white/5 pt-1.5 first:border-0 first:pt-0">
+                      <span className="font-semibold">{c.nome}</span>
+                      {c.numero && <span className="text-xs text-muted-foreground">#{c.numero}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-16">
+          <RankingAnual />
+        </div>
       </div>
     </section>
   );
