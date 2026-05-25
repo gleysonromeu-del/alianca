@@ -1,3 +1,4 @@
+cat > /mnt/user-data/outputs/use-campeonato.ts << 'ENDOFFILE'
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,14 @@ export interface Campeonato {
   created_at: string;
 }
 
+// Helper para normalizar um campeonato vindo do banco
+function normalizeCampeonato(data: Record<string, unknown>): Campeonato {
+  return {
+    ...(data as unknown as Campeonato),
+    cartoes_amarelos: Array.isArray(data.cartoes_amarelos) ? (data.cartoes_amarelos as CartaoEntry[]) : [],
+    cartoes_vermelhos: Array.isArray(data.cartoes_vermelhos) ? (data.cartoes_vermelhos as CartaoEntry[]) : [],
+  };
+}
 
 export interface Time {
   id: string;
@@ -142,7 +151,8 @@ export function useCampeonatoAtual() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      return normalizeCampeonato(data as unknown as Record<string, unknown>);
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -160,7 +170,8 @@ export function useUltimoEncerrado() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      return normalizeCampeonato(data as unknown as Record<string, unknown>);
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -175,7 +186,9 @@ export function useTodosCampeonatos() {
         .select("*")
         .order("mes", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((c) =>
+        normalizeCampeonato(c as unknown as Record<string, unknown>)
+      );
     },
   });
 }
@@ -301,7 +314,6 @@ export function useCriarCampeonato() {
       if (error) throw error;
       return data;
     },
-
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["campeonato"] });
       toast.success("Campeonato criado com sucesso!");
@@ -335,7 +347,6 @@ export function useAtualizarCampeonato() {
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
-
 
 export function useJogadores() {
   return useQuery({
@@ -462,6 +473,7 @@ export function useEncerrarCampeonato() {
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
+
 export type JogadorLite = { id: string; nome_completo: string; apelido: string; foto_url: string | null };
 
 export interface RankingAnualRow {
@@ -479,18 +491,16 @@ export interface RankingAnualRow {
 export function useRankingAnual(ano: number = new Date().getFullYear()) {
   return useQuery({
     queryKey: ["ranking-anual", ano],
-    if (error) throw error;
-if (!data) return null;
-return {
-  ...data,
-  cartoes_amarelos: Array.isArray(data.cartoes_amarelos) ? data.cartoes_amarelos : [],
-  cartoes_vermelhos: Array.isArray(data.cartoes_vermelhos) ? data.cartoes_vermelhos : [],
-};
+    queryFn: async (): Promise<RankingAnualRow[]> => {
+      const { data, error } = await supabase.rpc("ranking_anual", { _ano: ano });
+      if (error) throw error;
+      return (data ?? []) as RankingAnualRow[];
+    },
     staleTime: 1000 * 60,
   });
 }
 
-// ─── Destaques Anuais (Artilharia / Assistências acumulativos, editáveis pelo admin) ───
+// ─── Destaques Anuais ───────────────────────────────────────────────────────
 
 export interface DestaqueEntry {
   nome: string;
@@ -564,4 +574,8 @@ export function useSalvarDestaquesAnuais() {
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
+ENDOFFILE
+echo "OK"
+Saída
 
+OK
