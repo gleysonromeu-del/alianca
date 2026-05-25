@@ -479,11 +479,13 @@ export interface RankingAnualRow {
 export function useRankingAnual(ano: number = new Date().getFullYear()) {
   return useQuery({
     queryKey: ["ranking-anual", ano],
-    queryFn: async (): Promise<RankingAnualRow[]> => {
-      const { data, error } = await supabase.rpc("ranking_anual", { _ano: ano });
-      if (error) throw error;
-      return (data ?? []) as RankingAnualRow[];
-    },
+    if (error) throw error;
+if (!data) return null;
+return {
+  ...data,
+  cartoes_amarelos: Array.isArray(data.cartoes_amarelos) ? data.cartoes_amarelos : [],
+  cartoes_vermelhos: Array.isArray(data.cartoes_vermelhos) ? data.cartoes_vermelhos : [],
+};
     staleTime: 1000 * 60,
   });
 }
