@@ -404,15 +404,19 @@ export default function AdminCampeonato() {
   const [novoMes, setNovoMes] = useState(mesAtualISO);
   const [novoNome, setNovoNome] = useState("");
 
-  // Form: editar campeonato atual (nome, mês, campeão)
+  // Form: editar campeonato atual (nome, mês, campeão livre, cartões)
   const [editNome, setEditNome] = useState("");
   const [editMes, setEditMes] = useState("");
-  const [editCampeao, setEditCampeao] = useState<string>("");
+  const [editCampeaoNome, setEditCampeaoNome] = useState<string>("");
+  const [editAmarelos, setEditAmarelos] = useState<CartaoEntry[]>([]);
+  const [editVermelhos, setEditVermelhos] = useState<CartaoEntry[]>([]);
   useEffect(() => {
     if (camp) {
       setEditNome(camp.nome ?? "");
       setEditMes(camp.mes?.slice(0, 7) ?? "");
-      setEditCampeao(camp.campeao_time_id ?? "");
+      setEditCampeaoNome(camp.campeao_nome ?? "");
+      setEditAmarelos(camp.cartoes_amarelos ?? []);
+      setEditVermelhos(camp.cartoes_vermelhos ?? []);
     }
   }, [camp]);
 
