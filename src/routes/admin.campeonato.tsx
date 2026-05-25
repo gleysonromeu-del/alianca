@@ -469,7 +469,9 @@ export default function AdminCampeonato() {
       id: camp.id,
       nome: editNome.trim() || null,
       mes: editMes ? `${editMes}-01` : undefined,
-      campeao_time_id: editCampeao || null,
+      campeao_nome: editCampeaoNome.trim() || null,
+      cartoes_amarelos: editAmarelos.filter((c) => c.nome.trim() || c.numero.trim()),
+      cartoes_vermelhos: editVermelhos.filter((c) => c.nome.trim() || c.numero.trim()),
     });
   };
 
