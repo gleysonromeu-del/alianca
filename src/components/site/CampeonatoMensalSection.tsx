@@ -187,9 +187,6 @@ export function CampeonatoMensalSection() {
           </motion.div>
         )}
 
-        <div className="mt-16">
-          <RankingAnual />
-        </div>
         {((camp?.cartoes_amarelos?.length ?? 0) > 0 ||
           (camp?.cartoes_vermelhos?.length ?? 0) > 0) && (
           <div className="mt-8 grid gap-4 md:grid-cols-2">
