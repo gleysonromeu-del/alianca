@@ -488,3 +488,78 @@ export function useRankingAnual(ano: number = new Date().getFullYear()) {
   });
 }
 
+// ─── Destaques Anuais (Artilharia / Assistências acumulativos, editáveis pelo admin) ───
+
+export interface DestaqueEntry {
+  nome: string;
+  numero: string;
+  total: number;
+}
+
+export interface DestaquesAnuais {
+  ano: number;
+  artilharia: DestaqueEntry[];
+  assistencias: DestaqueEntry[];
+}
+
+type DestaquesRow = {
+  ano: number;
+  artilharia: unknown;
+  assistencias: unknown;
+};
+
+function parseEntries(raw: unknown, key: "gols" | "assistencias"): DestaqueEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => {
+    const o = (it ?? {}) as Record<string, unknown>;
+    return {
+      nome: String(o.nome ?? ""),
+      numero: String(o.numero ?? ""),
+      total: Number(o[key] ?? o.total ?? 0) || 0,
+    };
+  });
+}
+
+export function useDestaquesAnuais(ano: number = new Date().getFullYear()) {
+  return useQuery({
+    queryKey: ["destaques-anuais", ano],
+    queryFn: async (): Promise<DestaquesAnuais> => {
+      const { data, error } = await supabase
+        .from("destaques_anuais")
+        .select("ano, artilharia, assistencias")
+        .eq("ano", ano)
+        .maybeSingle<DestaquesRow>();
+      if (error) throw error;
+      return {
+        ano,
+        artilharia: parseEntries(data?.artilharia, "gols"),
+        assistencias: parseEntries(data?.assistencias, "assistencias"),
+      };
+    },
+    staleTime: 1000 * 60,
+  });
+}
+
+export function useSalvarDestaquesAnuais() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DestaquesAnuais) => {
+      const payload = {
+        ano: input.ano,
+        artilharia: input.artilharia.map((e) => ({ nome: e.nome, numero: e.numero, gols: e.total })),
+        assistencias: input.assistencias.map((e) => ({ nome: e.nome, numero: e.numero, assistencias: e.total })),
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase
+        .from("destaques_anuais")
+        .upsert(payload, { onConflict: "ano" });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["destaques-anuais", v.ano] });
+      toast.success("Destaques anuais salvos");
+    },
+    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
