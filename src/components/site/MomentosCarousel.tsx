@@ -66,24 +66,38 @@ export function MomentosCarousel() {
             plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
             className="mx-auto max-w-5xl"
           >
-            <CarouselContent>
+            <CarouselContent className="items-start">
               {items.map((m) => (
                 <CarouselItem key={m.id} className="md:basis-1/2 lg:basis-1/2">
-                  <div className="rounded-3xl overflow-hidden glass shadow-[var(--shadow-elegant)] h-full flex flex-col">
-                    <div className="aspect-video bg-black/40 grid place-items-center overflow-hidden">
-                      {m.tipo === "foto" && m.midia_url && (
-                        <img src={m.midia_url} alt={m.legenda ?? "Momento Aliança"} className="h-full w-full object-cover" loading="lazy" />
-                      )}
-                      {m.tipo === "video" && m.midia_url && (
-                        <video src={m.midia_url} controls playsInline className="h-full w-full object-cover" />
-                      )}
-                      {m.tipo === "texto" && (
-                        <div className="p-8 text-center">
-                          <Quote className="mx-auto h-10 w-10 text-accent mb-3" />
-                          <p className="text-lg font-medium text-foreground italic">"{m.legenda}"</p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="rounded-3xl overflow-hidden glass shadow-[var(--shadow-elegant)] flex flex-col">
+
+                    {/* ── Mídia: sem aspect-ratio fixo, imagem mostra altura natural ── */}
+                    {m.tipo === "foto" && m.midia_url && (
+                      <img
+                        src={m.midia_url}
+                        alt={m.legenda ?? "Momento Aliança"}
+                        className="w-full object-contain max-h-[480px] bg-black/30"
+                        loading="lazy"
+                      />
+                    )}
+
+                    {m.tipo === "video" && m.midia_url && (
+                      <video
+                        src={m.midia_url}
+                        controls
+                        playsInline
+                        className="w-full max-h-[480px] bg-black"
+                      />
+                    )}
+
+                    {m.tipo === "texto" && (
+                      <div className="p-8 text-center min-h-[200px] flex flex-col items-center justify-center bg-black/20">
+                        <Quote className="mx-auto h-10 w-10 text-accent mb-3" />
+                        <p className="text-lg font-medium text-foreground italic">"{m.legenda}"</p>
+                      </div>
+                    )}
+
+                    {/* ── Rodapé ── */}
                     {m.tipo !== "texto" && m.legenda && (
                       <p className="px-5 pt-4 text-sm text-foreground">{m.legenda}</p>
                     )}

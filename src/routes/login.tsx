@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useRef, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,6 @@ export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Entrar — Aliança do Campo Grande" }] }),
 });
 
-const ADMIN_EMAILS = ["aliancacgec2004@gmail.com"];
-
 function LoginPage() {
   const navigate = useNavigate();
   const { user, isAdmin, loading } = useAuth();
@@ -21,40 +19,34 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const justLoggedIn = useRef(false);
 
   useEffect(() => {
     if (loading) return;
     if (!user) return;
-    navigate({ to: isAdmin ? "/admin/campeonato" : "/jogadores", replace: true });
-  }, [user, isAdmin, loading, navigate]);
+    // Admin e jogador vão para /jogadores — o painel admin está lá dentro
+    navigate({ to: "/jogadores", replace: true });
+  }, [user, loading, navigate]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setSubmitting(false);
-
-    if (authError) {
-      setError("E-mail ou senha incorretos.");
-      return;
-    }
-
-    const isAdminEmail = ADMIN_EMAILS.includes(data.user?.email?.toLowerCase() ?? "");
-    navigate({ to: isAdminEmail ? "/admin/campeonato" : "/jogadores", replace: true });
-  }
-
-  if (loading) {
+  if (loading || user) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) {
+      setSubmitting(false);
+      setError("E-mail ou senha incorretos.");
+      return;
+    }
+    justLoggedIn.current = true;
   }
 
   return (
@@ -71,47 +63,30 @@ function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={submitting} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} />
           </div>
-
           {error && <p className="text-sm text-destructive rounded-lg bg-destructive/10 px-3 py-2">{error}</p>}
-
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Entrando..." : "Entrar"}
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Entrando...
+              </span>
+            ) : "Entrar"}
           </Button>
         </form>
 
         <div className="mt-5 flex flex-col gap-2 text-center text-sm">
-          <Link to="/esqueci-senha" className="text-primary hover:underline">
-            Esqueci minha senha
-          </Link>
+          <Link to="/esqueci-senha" className="text-primary hover:underline">Esqueci minha senha</Link>
           <span className="text-muted-foreground">
             Não tem conta?{" "}
-            <Link to="/cadastro" className="text-primary font-medium hover:underline">
-              Cadastre-se
-            </Link>
+            <Link to="/cadastro" className="text-primary font-medium hover:underline">Cadastre-se</Link>
           </span>
-          <Link to="/" className="text-muted-foreground hover:underline">
-            ← Voltar ao site
-          </Link>
+          <Link to="/" className="text-muted-foreground hover:underline">← Voltar ao site</Link>
         </div>
       </div>
     </div>

@@ -1,41 +1,10 @@
-cat > /mnt/user-data/outputs/use-campeonato.ts << 'ENDOFFILE'
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
-export type CampeonatoStatus = "aberto" | "encerrado";
-export type PartidaStatus = "agendada" | "finalizada";
-export type HistoricoTipo = "campeao" | "pagador_cerveja";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface CartaoEntry {
-  nome: string;
-  numero: string;
-}
-
-export interface Campeonato {
-  id: string;
-  mes: string;
-  nome: string | null;
-  status: CampeonatoStatus;
-  campeao_time_id: string | null;
-  campeao_nome: string | null;
-  cartoes_amarelos: CartaoEntry[];
-  cartoes_vermelhos: CartaoEntry[];
-  pagador_cerveja_time_id: string | null;
-  created_at: string;
-}
-
-// Helper para normalizar um campeonato vindo do banco
-function normalizeCampeonato(data: Record<string, unknown>): Campeonato {
-  return {
-    ...(data as unknown as Campeonato),
-    cartoes_amarelos: Array.isArray(data.cartoes_amarelos) ? (data.cartoes_amarelos as CartaoEntry[]) : [],
-    cartoes_vermelhos: Array.isArray(data.cartoes_vermelhos) ? (data.cartoes_vermelhos as CartaoEntry[]) : [],
-  };
-}
-
-export interface Time {
+export type Time = {
   id: string;
   campeonato_id: string;
   nome: string;
@@ -49,10 +18,17 @@ export interface Time {
   gols_pro: number;
   gols_contra: number;
   permanece: boolean;
-  created_at: string;
-}
+};
 
-export interface Partida {
+export type Campeonato = {
+  id: string;
+  mes: string;
+  status: "aberto" | "encerrado";
+  campeao_time_id: string | null;
+  pagador_cerveja_time_id: string | null;
+};
+
+export type Partida = {
   id: string;
   campeonato_id: string;
   time_a_id: string;
@@ -60,108 +36,63 @@ export interface Partida {
   data: string | null;
   gols_a: number;
   gols_b: number;
-  status: PartidaStatus;
+  status: "agendada" | "finalizada";
   observacoes: string | null;
-  created_at: string;
-  time_a?: Time;
-  time_b?: Time;
-}
+  time_a?: { nome: string; cor: string | null };
+  time_b?: { nome: string; cor: string | null };
+};
 
-export interface EstatisticaPartida {
-  id: string;
-  partida_id: string;
-  jogador_id: string;
-  time_id: string;
-  gols: number;
-  assistencias: number;
-  amarelos: number;
-  vermelhos: number;
-  presente: boolean;
-}
-
-export interface HistoricoCampeao {
-  id: string;
-  campeonato_id: string;
-  time_id: string | null;
-  mes: string;
-  tipo: HistoricoTipo;
-  nome_time_snapshot: string | null;
-  jogadores_snapshot: Array<{ id: string; apelido: string; nome: string }> | null;
-  created_at: string;
-}
-
-export interface TimeJogador {
+export type TimeJogador = {
   id: string;
   time_id: string;
   jogador_id: string;
   campeonato_id: string;
-  jogador?: { id: string; nome_completo: string; apelido: string; foto_url: string | null };
-}
+};
 
-export interface CreatePartidaInput {
-  campeonato_id: string;
-  time_a_id: string;
-  time_b_id: string;
-  data?: string | null;
-  observacoes?: string | null;
-}
+export type JogadorLite = {
+  id: string;
+  apelido: string;
+  nome_completo: string;
+  posicao: string | null;
+};
 
-export interface FinalizarPartidaInput {
-  partida_id: string;
-  gols_a: number;
-  gols_b: number;
-  observacoes?: string | null;
-}
-
-export interface CreateTimeInput {
-  campeonato_id: string;
-  nome: string;
-  cor?: string;
-  escudo_url?: string | null;
-  capitao_id?: string | null;
-  jogador_ids?: string[];
-}
-
-export function formatMes(mes?: string | null): string {
-  if (!mes) return "—";
-  const [year, month] = mes.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-export function saldoGols(time: Time) {
-  return time.gols_pro - time.gols_contra;
-}
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export function useCampeonatoAtual() {
   return useQuery({
-    queryKey: ["campeonato", "atual"],
-    queryFn: async (): Promise<Campeonato | null> => {
-      const mesAtual = new Date();
-      mesAtual.setDate(1);
-      const mesISO = mesAtual.toISOString().slice(0, 10);
+    queryKey: ["campeonato-atual"],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("campeonato_mensal")
         .select("*")
         .eq("status", "aberto")
-        .lte("mes", mesISO)
         .order("mes", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return null;
-      return normalizeCampeonato(data as unknown as Record<string, unknown>);
+      return data as Campeonato | null;
     },
-    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useTodosCampeonatos() {
+  return useQuery({
+    queryKey: ["campeonatos-todos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("campeonato_mensal")
+        .select("*")
+        .order("mes", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Campeonato[];
+    },
   });
 }
 
 export function useUltimoEncerrado() {
   return useQuery({
-    queryKey: ["campeonato", "ultimo-encerrado"],
-    queryFn: async (): Promise<Campeonato | null> => {
+    queryKey: ["campeonato-ultimo-encerrado"],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("campeonato_mensal")
         .select("*")
@@ -170,194 +101,121 @@ export function useUltimoEncerrado() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return null;
-      return normalizeCampeonato(data as unknown as Record<string, unknown>);
-    },
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
-export function useTodosCampeonatos() {
-  return useQuery({
-    queryKey: ["campeonato", "todos"],
-    queryFn: async (): Promise<Campeonato[]> => {
-      const { data, error } = await supabase
-        .from("campeonato_mensal")
-        .select("*")
-        .order("mes", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((c) =>
-        normalizeCampeonato(c as unknown as Record<string, unknown>)
-      );
+      return data as Campeonato | null;
     },
   });
 }
 
-export function useTimes(campeonatoId?: string | null) {
+export function useTimes(campeonatoId: string | undefined) {
   return useQuery({
     queryKey: ["times", campeonatoId],
     enabled: !!campeonatoId,
-    queryFn: async (): Promise<Time[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("times")
         .select("*")
         .eq("campeonato_id", campeonatoId!)
-        .order("pontos", { ascending: false })
-        .order("gols_pro", { ascending: false });
+        .order("pontos", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const arr = (data ?? []) as Time[];
+      arr.sort(
+        (a, b) =>
+          b.pontos - a.pontos ||
+          (b.gols_pro - b.gols_contra) - (a.gols_pro - a.gols_contra) ||
+          b.gols_pro - a.gols_pro,
+      );
+      return arr;
     },
-    staleTime: 1000 * 30,
   });
 }
 
-export function usePartidas(campeonatoId?: string | null) {
+export function useTimeJogadores(campeonatoId: string | undefined) {
+  return useQuery({
+    queryKey: ["time-jogadores", campeonatoId],
+    enabled: !!campeonatoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_jogadores")
+        .select("*")
+        .eq("campeonato_id", campeonatoId!);
+      if (error) throw error;
+      return (data ?? []) as TimeJogador[];
+    },
+  });
+}
+
+export function usePartidas(campeonatoId: string | undefined) {
   return useQuery({
     queryKey: ["partidas", campeonatoId],
     enabled: !!campeonatoId,
-    queryFn: async (): Promise<Partida[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("partidas")
         .select(`
           *,
-          time_a:times!partidas_time_a_id_fkey(*),
-          time_b:times!partidas_time_b_id_fkey(*)
+          time_a:times!partidas_time_a_id_fkey(nome, cor),
+          time_b:times!partidas_time_b_id_fkey(nome, cor)
         `)
         .eq("campeonato_id", campeonatoId!)
-        .order("data", { ascending: true, nullsFirst: false });
+        .order("data", { ascending: false, nullsFirst: false });
       if (error) throw error;
-      return (data as unknown as Partida[]) ?? [];
+      return (data ?? []) as Partida[];
     },
-    staleTime: 1000 * 30,
   });
 }
 
-export function useHistoricoCampeoes() {
+export function useJogadores() {
+  return useQuery({
+    queryKey: ["jogadores-lite"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("jogadores")
+        .select("id,apelido,nome_completo,posicao")
+        .order("apelido", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as JogadorLite[];
+    },
+  });
+}
+
+export function useHistorico() {
   return useQuery({
     queryKey: ["historico-campeoes"],
-    queryFn: async (): Promise<HistoricoCampeao[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("historico_campeoes")
         .select("*")
-        .eq("tipo", "campeao")
-        .order("mes", { ascending: false });
+        .order("mes", { ascending: false })
+        .limit(24);
       if (error) throw error;
-      return data ?? [];
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-}
-
-export function useTimeJogadores(timeId?: string | null) {
-  return useQuery({
-    queryKey: ["time-jogadores", timeId],
-    enabled: !!timeId,
-    queryFn: async (): Promise<TimeJogador[]> => {
-      const { data, error } = await supabase
-        .from("time_jogadores")
-        .select(`*, jogador:jogadores(id, nome_completo, apelido, foto_url)`)
-        .eq("time_id", timeId!);
-      if (error) throw error;
-      return (data as unknown as TimeJogador[]) ?? [];
+      return (data ?? []) as Array<{
+        id: string;
+        mes: string;
+        tipo: "campeao" | "pagador_cerveja";
+        nome_time_snapshot: string | null;
+        jogadores_snapshot: Array<{ id: string; apelido: string; nome: string }> | null;
+      }>;
     },
   });
 }
 
-export function useEstatisticasPartida(partidaId?: string | null) {
-  return useQuery({
-    queryKey: ["estatisticas-partida", partidaId],
-    enabled: !!partidaId,
-    queryFn: async (): Promise<EstatisticaPartida[]> => {
-      const { data, error } = await supabase
-        .from("estatisticas_partida")
-        .select("*")
-        .eq("partida_id", partidaId!);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-}
-
-export function useCampeonatoRealtime() {
-  const qc = useQueryClient();
-  useEffect(() => {
-    const channel = supabase
-      .channel("campeonato-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "times" }, () => {
-        qc.invalidateQueries({ queryKey: ["times"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "partidas" }, () => {
-        qc.invalidateQueries({ queryKey: ["partidas"] });
-        qc.invalidateQueries({ queryKey: ["times"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "campeonato_mensal" }, () => {
-        qc.invalidateQueries({ queryKey: ["campeonato"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [qc]);
-}
+// ─── Mutations ────────────────────────────────────────────────────────────────
 
 export function useCriarCampeonato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { mes: string; nome?: string | null } | string) => {
-      const payload =
-        typeof input === "string"
-          ? { mes: input, nome: null as string | null, status: "aberto" as const }
-          : { mes: input.mes, nome: input.nome ?? null, status: "aberto" as const };
+    mutationFn: async (mes: string) => {
       const { data, error } = await supabase
         .from("campeonato_mensal")
-        .insert(payload)
+        .insert({ mes, status: "aberto" })
         .select()
         .single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["campeonato"] });
-      toast.success("Campeonato criado com sucesso!");
-    },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
-  });
-}
-
-export interface AtualizarCampeonatoInput {
-  id: string;
-  nome?: string | null;
-  mes?: string;
-  campeao_time_id?: string | null;
-  campeao_nome?: string | null;
-  cartoes_amarelos?: CartaoEntry[];
-  cartoes_vermelhos?: CartaoEntry[];
-  pagador_cerveja_time_id?: string | null;
-}
-
-export function useAtualizarCampeonato() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...patch }: AtualizarCampeonatoInput) => {
-      const { error } = await supabase.from("campeonato_mensal").update(patch).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["campeonato"] });
-      toast.success("Campeonato atualizado");
-    },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
-  });
-}
-
-export function useJogadores() {
-  return useQuery({
-    queryKey: ["jogadores"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("jogadores")
-        .select("id, nome_completo, apelido, foto_url")
-        .order("apelido", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      qc.invalidateQueries({ queryKey: ["campeonato-atual"] });
+      qc.invalidateQueries({ queryKey: ["campeonatos-todos"] });
     },
   });
 }
@@ -365,217 +223,219 @@ export function useJogadores() {
 export function useCriarTime() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ jogador_ids, ...timeData }: CreateTimeInput) => {
+    mutationFn: async ({
+      campeonato_id,
+      nome,
+      cor,
+      jogador_ids,
+    }: {
+      campeonato_id: string;
+      nome: string;
+      cor: string;
+      jogador_ids: string[];
+    }) => {
+      // 1. Cria o time
       const { data: time, error } = await supabase
         .from("times")
-        .insert(timeData)
+        .insert({ campeonato_id, nome, cor })
         .select()
         .single();
       if (error) throw error;
-      if (jogador_ids?.length) {
-        const rows = jogador_ids.map((jid) => ({
+
+      // 2. Vincula jogadores
+      if (jogador_ids.length > 0) {
+        const rows = jogador_ids.map((jogador_id) => ({
           time_id: time.id,
-          jogador_id: jid,
-          campeonato_id: timeData.campeonato_id,
+          jogador_id,
+          campeonato_id,
         }));
-        const { error: e2 } = await supabase.from("time_jogadores").insert(rows);
-        if (e2) throw e2;
+        const { error: tjErr } = await supabase.from("time_jogadores").insert(rows);
+        if (tjErr) throw tjErr;
       }
+
       return time;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["times"] });
-      qc.invalidateQueries({ queryKey: ["time-jogadores"] });
-      toast.success("Time criado!");
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["times", vars.campeonato_id] });
+      qc.invalidateQueries({ queryKey: ["time-jogadores", vars.campeonato_id] });
     },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
 
 export function useDeletarTime() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, campeonato_id }: { id: string; campeonato_id: string }) => {
       const { error } = await supabase.from("times").delete().eq("id", id);
       if (error) throw error;
+      return campeonato_id;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["times"] });
-      toast.success("Time removido");
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["times", vars.campeonato_id] });
+      qc.invalidateQueries({ queryKey: ["time-jogadores", vars.campeonato_id] });
     },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
 
 export function useCriarPartida() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreatePartidaInput) => {
-      const { data, error } = await supabase.from("partidas").insert(input).select().single();
+    mutationFn: async ({
+      campeonato_id,
+      time_a_id,
+      time_b_id,
+      data,
+      observacoes,
+    }: {
+      campeonato_id: string;
+      time_a_id: string;
+      time_b_id: string;
+      data: string | null;
+      observacoes: string | null;
+    }) => {
+      const { data: partida, error } = await supabase
+        .from("partidas")
+        .insert({ campeonato_id, time_a_id, time_b_id, data, observacoes, status: "agendada" })
+        .select()
+        .single();
       if (error) throw error;
-      return data;
+      return partida;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partidas"] });
-      toast.success("Partida criada");
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["partidas", vars.campeonato_id] });
     },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
-  });
-}
-
-export function useDeletarPartida() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("partidas").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partidas"] });
-      qc.invalidateQueries({ queryKey: ["times"] });
-      toast.success("Partida removida");
-    },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
 
 export function useFinalizarPartida() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ partida_id, gols_a, gols_b, observacoes }: FinalizarPartidaInput) => {
-      const { error } = await supabase
+    mutationFn: async ({
+      partida_id,
+      gols_a,
+      gols_b,
+      observacoes,
+    }: {
+      partida_id: string;
+      gols_a: number;
+      gols_b: number;
+      observacoes: string | null;
+    }) => {
+      const { data, error } = await supabase
         .from("partidas")
-        .update({ gols_a, gols_b, status: "finalizada", observacoes: observacoes ?? null })
-        .eq("id", partida_id);
+        .update({ gols_a, gols_b, observacoes, status: "finalizada" })
+        .eq("id", partida_id)
+        .select("campeonato_id")
+        .single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partidas"] });
-      qc.invalidateQueries({ queryKey: ["times"] });
-      toast.success("Partida finalizada");
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["partidas", data.campeonato_id] });
+      qc.invalidateQueries({ queryKey: ["times", data.campeonato_id] });
     },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useDeletarPartida() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, campeonato_id }: { id: string; campeonato_id: string }) => {
+      const { error } = await supabase.from("partidas").delete().eq("id", id);
+      if (error) throw error;
+      return campeonato_id;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["partidas", vars.campeonato_id] });
+      qc.invalidateQueries({ queryKey: ["times", vars.campeonato_id] });
+    },
   });
 }
 
 export function useEncerrarCampeonato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (campeonato_id: string) => {
-      const { error } = await supabase.rpc("encerrar_campeonato", { p_campeonato_id: campeonato_id });
+    mutationFn: async (campeonatoId: string) => {
+      // Busca times ordenados por pontos para determinar campeão e pagador
+      const { data: times, error: tErr } = await supabase
+        .from("times")
+        .select("id, nome, pontos, vitorias, gols_pro, gols_contra")
+        .eq("campeonato_id", campeonatoId)
+        .order("pontos", { ascending: false });
+      if (tErr) throw tErr;
+
+      const campeao = times?.[0] ?? null;
+      const pagador = times?.[times.length - 1] ?? null;
+
+      const { error } = await supabase
+        .from("campeonato_mensal")
+        .update({
+          status: "encerrado",
+          campeao_time_id: campeao?.id ?? null,
+          campeao_nome: campeao?.nome ?? null,
+          pagador_cerveja_time_id: pagador?.id ?? null,
+        })
+        .eq("id", campeonatoId);
       if (error) throw error;
+
+      // Registra histórico
+      if (campeao) {
+        await supabase.from("historico_campeoes").insert({
+          campeonato_id: campeonatoId,
+          time_id: campeao.id,
+          mes: new Date().toISOString().slice(0, 10),
+          tipo: "campeao",
+          nome_time_snapshot: campeao.nome,
+        });
+      }
+      if (pagador && pagador.id !== campeao?.id) {
+        await supabase.from("historico_campeoes").insert({
+          campeonato_id: campeonatoId,
+          time_id: pagador.id,
+          mes: new Date().toISOString().slice(0, 10),
+          tipo: "pagador_cerveja",
+          nome_time_snapshot: pagador.nome,
+        });
+      }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["campeonato"] });
+      qc.invalidateQueries({ queryKey: ["campeonato-atual"] });
+      qc.invalidateQueries({ queryKey: ["campeonatos-todos"] });
       qc.invalidateQueries({ queryKey: ["historico-campeoes"] });
-      toast.success("Campeonato encerrado!");
     },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
   });
 }
 
-export type JogadorLite = { id: string; nome_completo: string; apelido: string; foto_url: string | null };
+// ─── Realtime ─────────────────────────────────────────────────────────────────
 
-export interface RankingAnualRow {
-  jogador_id: string;
-  apelido: string;
-  nome_completo: string;
-  foto_url: string | null;
-  gols: number;
-  assistencias: number;
-  amarelos: number;
-  vermelhos: number;
-  jogos: number;
-}
-
-export function useRankingAnual(ano: number = new Date().getFullYear()) {
-  return useQuery({
-    queryKey: ["ranking-anual", ano],
-    queryFn: async (): Promise<RankingAnualRow[]> => {
-      const { data, error } = await supabase.rpc("ranking_anual", { _ano: ano });
-      if (error) throw error;
-      return (data ?? []) as RankingAnualRow[];
-    },
-    staleTime: 1000 * 60,
-  });
-}
-
-// ─── Destaques Anuais ───────────────────────────────────────────────────────
-
-export interface DestaqueEntry {
-  nome: string;
-  numero: string;
-  total: number;
-}
-
-export interface DestaquesAnuais {
-  ano: number;
-  artilharia: DestaqueEntry[];
-  assistencias: DestaqueEntry[];
-}
-
-type DestaquesRow = {
-  ano: number;
-  artilharia: unknown;
-  assistencias: unknown;
-};
-
-function parseEntries(raw: unknown, key: "gols" | "assistencias"): DestaqueEntry[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((it) => {
-    const o = (it ?? {}) as Record<string, unknown>;
-    return {
-      nome: String(o.nome ?? ""),
-      numero: String(o.numero ?? ""),
-      total: Number(o[key] ?? o.total ?? 0) || 0,
-    };
-  });
-}
-
-export function useDestaquesAnuais(ano: number = new Date().getFullYear()) {
-  return useQuery({
-    queryKey: ["destaques-anuais", ano],
-    queryFn: async (): Promise<DestaquesAnuais> => {
-      const { data, error } = await supabase
-        .from("destaques_anuais")
-        .select("ano, artilharia, assistencias")
-        .eq("ano", ano)
-        .maybeSingle<DestaquesRow>();
-      if (error) throw error;
-      return {
-        ano,
-        artilharia: parseEntries(data?.artilharia, "gols"),
-        assistencias: parseEntries(data?.assistencias, "assistencias"),
-      };
-    },
-    staleTime: 1000 * 60,
-  });
-}
-
-export function useSalvarDestaquesAnuais() {
+export function useCampeonatoRealtime() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: DestaquesAnuais) => {
-      const payload = {
-        ano: input.ano,
-        artilharia: input.artilharia.map((e) => ({ nome: e.nome, numero: e.numero, gols: e.total })),
-        assistencias: input.assistencias.map((e) => ({ nome: e.nome, numero: e.numero, assistencias: e.total })),
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase
-        .from("destaques_anuais")
-        .upsert(payload, { onConflict: "ano" });
-      if (error) throw error;
-    },
-    onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ["destaques-anuais", v.ano] });
-      toast.success("Destaques anuais salvos");
-    },
-    onError: (e: Error) => toast.error(`Erro: ${e.message}`),
-  });
+  useEffect(() => {
+    const channel = supabase
+      .channel("campeonato-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "times" }, () => {
+        qc.invalidateQueries({ queryKey: ["times"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "partidas" }, () => {
+        qc.invalidateQueries({ queryKey: ["partidas"] });
+        qc.invalidateQueries({ queryKey: ["times"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_jogadores" }, () => {
+        qc.invalidateQueries({ queryKey: ["time-jogadores"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "campeonato_mensal" }, () => {
+        qc.invalidateQueries({ queryKey: ["campeonato-atual"] });
+        qc.invalidateQueries({ queryKey: ["campeonato-ultimo-encerrado"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [qc]);
 }
-ENDOFFILE
-echo "OK"
-Saída
 
-OK
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export function formatMes(iso: string | undefined | null) {
+  if (!iso) return "";
+  const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+  return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
