@@ -1,4 +1,6 @@
-// src/pages/admin/AdminCampeonato.tsx
+
+
+
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,7 +27,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// ─── Upload helper ────────────────────────────────────────────────────────────
+// ─── Upload helper ─────────────────────────────────────────────────────────────
 
 async function uploadImagem(file: File, pasta: string): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
@@ -88,23 +90,6 @@ function useSalvarEstatisticas() {
   });
 }
 
-// Hook para atualizar campeonato (nome + foto do galo)
-function useAtualizarCampeonato() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, nome, foto_galo }: { id: string; nome?: string | null; foto_galo?: string | null }) => {
-      const payload: any = {};
-      if (nome !== undefined) payload.campeao_nome = nome;
-      // Usamos campo configuracoes para foto_galo pois não há coluna específica
-      // Alternativa: salvar em configuracoes table
-      const { error } = await supabase.from("campeonato_mensal").update(payload).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["campeonato-atual"] }),
-  });
-}
-
-// Hook para salvar config (foto do galo, nome do campeonato)
 function useSalvarConfig() {
   return useMutation({
     mutationFn: async ({ chave, valor }: { chave: string; valor: string }) => {
@@ -117,6 +102,7 @@ function useSalvarConfig() {
 function useConfig(chave: string) {
   return useQuery({
     queryKey: ["config", chave],
+    enabled: !!chave,
     queryFn: async () => {
       const { data } = await supabase.from("configuracoes").select("valor").eq("chave", chave).maybeSingle();
       return data?.valor ?? null;
@@ -124,7 +110,6 @@ function useConfig(chave: string) {
   });
 }
 
-// Hook para atualizar escudo do time
 function useAtualizarEscudoTime() {
   const qc = useQueryClient();
   return useMutation({
@@ -183,8 +168,6 @@ function NumInput({ value, onChange, min = 0, max = 20 }: { value: number; onCha
   );
 }
 
-// ─── Upload de imagem inline ──────────────────────────────────────────────────
-
 function ImageUploadBtn({ label, pasta, onUploaded, currentUrl }: { label: string; pasta: string; onUploaded: (url: string) => void; currentUrl?: string | null }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -213,12 +196,7 @@ function ImageUploadBtn({ label, pasta, onUploaded, currentUrl }: { label: strin
           <Upload className="h-6 w-6 text-muted-foreground" />
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => ref.current?.click()}
-        disabled={uploading}
-        className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15 transition disabled:opacity-50"
-      >
+      <button type="button" onClick={() => ref.current?.click()} disabled={uploading} className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15 transition disabled:opacity-50">
         {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
         {uploading ? "Enviando..." : label}
       </button>
@@ -227,33 +205,74 @@ function ImageUploadBtn({ label, pasta, onUploaded, currentUrl }: { label: strin
   );
 }
 
-// ─── Modal Configurações do Campeonato ────────────────────────────────────────
+// ─── Nome do Galo editável inline ─────────────────────────────────────────────
+
+function GaloNomeInline({ campId }: { campId: string }) {
+  const { data: nomeGalo } = useConfig(`galo_nome_${campId}`);
+  const salvarConfig = useSalvarConfig();
+  const qc = useQueryClient();
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState("");
+
+  useEffect(() => {
+    if (nomeGalo !== undefined) setValor(nomeGalo ?? "");
+  }, [nomeGalo]);
+
+  async function salvar() {
+    await salvarConfig.mutateAsync({ chave: `galo_nome_${campId}`, valor });
+    qc.invalidateQueries({ queryKey: ["config", `galo_nome_${campId}`] });
+    setEditando(false);
+    toast.success("Nome do Galo salvo!");
+  }
+
+  if (editando) {
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <input
+          autoFocus
+          className="rounded-lg border border-amber-500/30 bg-white/5 px-3 py-1.5 text-sm font-bold text-white outline-none focus:border-amber-500/60 w-full max-w-xs"
+          placeholder="Nome do time campeão"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") setEditando(false); }}
+        />
+        <button onClick={salvar} className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/30 transition">
+          {salvarConfig.isPending ? "..." : "Salvar"}
+        </button>
+        <button onClick={() => setEditando(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+      </div>
+    );
+  }
+
+  return (
+    <button onClick={() => setEditando(true)} className="mt-1 flex items-center gap-2 group text-left">
+      <span className="text-xl font-black text-white">
+        {valor || "Clique para adicionar o nome do campeão"}
+      </span>
+      <Edit3 className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition shrink-0" />
+    </button>
+  );
+}
+
+// ─── Modal Configurações ──────────────────────────────────────────────────────
 
 function ModalConfiguracoes({ campId, onClose }: { campId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: nomeConfig } = useConfig(`campeonato_nome_${campId}`);
   const { data: fotoGaloConfig } = useConfig("foto_galo_atual");
   const salvarConfig = useSalvarConfig();
-
   const [nome, setNome] = useState("");
   const [fotoGalo, setFotoGalo] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  useEffect(() => {
-    if (nomeConfig !== undefined) setNome(nomeConfig ?? "");
-  }, [nomeConfig]);
-
-  useEffect(() => {
-    if (fotoGaloConfig !== undefined) setFotoGalo(fotoGaloConfig);
-  }, [fotoGaloConfig]);
+  useEffect(() => { if (nomeConfig !== undefined) setNome(nomeConfig ?? ""); }, [nomeConfig]);
+  useEffect(() => { if (fotoGaloConfig !== undefined) setFotoGalo(fotoGaloConfig); }, [fotoGaloConfig]);
 
   async function handleSalvar() {
     setSalvando(true);
     try {
       await salvarConfig.mutateAsync({ chave: `campeonato_nome_${campId}`, valor: nome });
-      if (fotoGalo) {
-        await salvarConfig.mutateAsync({ chave: "foto_galo_atual", valor: fotoGalo });
-      }
+      if (fotoGalo) await salvarConfig.mutateAsync({ chave: "foto_galo_atual", valor: fotoGalo });
       qc.invalidateQueries({ queryKey: ["config"] });
       toast.success("Configurações salvas!");
       onClose();
@@ -268,40 +287,22 @@ function ModalConfiguracoes({ campId, onClose }: { campId: string; onClose: () =
     <ModalOverlay onClose={onClose} wide>
       <h3 className="mb-6 text-xl font-black">⚙️ Configurações do Campeonato</h3>
       <div className="space-y-6">
-
-        {/* Nome do campeonato */}
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Nome do Campeonato
-          </label>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome do Campeonato</label>
           <input
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
             placeholder="Ex: CHAMPIONS LEAGUE ALIANÇA 2026"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Este nome aparece no topo da seção pública do campeonato.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Aparece no topo da seção pública. Troque a cada mês.</p>
         </div>
-
-        {/* Foto do Galo */}
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            🐔 Foto do Galo (Campeão Defensor)
-          </label>
-          <p className="mb-3 text-xs text-muted-foreground">O "Galo" é o campeão do mês anterior — independente da classificação atual.</p>
-          <ImageUploadBtn
-            label="Enviar foto do Galo"
-            pasta="galo"
-            currentUrl={fotoGalo}
-            onUploaded={(url) => setFotoGalo(url)}
-          />
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">🐔 Foto do Galo (Campeão Defensor)</label>
+          <p className="mb-3 text-xs text-muted-foreground">Foto do campeão do mês anterior. Troque quando o título mudar de mãos.</p>
+          <ImageUploadBtn label="Enviar foto do Galo" pasta="galo" currentUrl={fotoGalo} onUploaded={(url) => setFotoGalo(url)} />
         </div>
-
-        <button
-          onClick={handleSalvar}
-          disabled={salvando}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
-        >
+        <button onClick={handleSalvar} disabled={salvando} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-accent-foreground transition hover:opacity-90 disabled:opacity-50">
           {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
           Salvar configurações
         </button>
@@ -325,20 +326,12 @@ function ModalEscudoTime({ time, campeonatoId, onClose }: { time: Time; campeona
     <ModalOverlay onClose={onClose}>
       <h3 className="mb-5 text-xl font-black">Escudo — {time.nome}</h3>
       <div className="flex flex-col items-center gap-4 py-4">
-        {time.escudo_url ? (
-          <img src={time.escudo_url} alt={time.nome} className="h-24 w-24 rounded-2xl object-cover border border-white/10" />
-        ) : (
-          <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/5 text-2xl font-black" style={{ color: time.cor ?? "#FFD166" }}>
-            {time.nome.slice(0, 2).toUpperCase()}
-          </div>
-        )}
-        <ImageUploadBtn
-          label="Enviar escudo"
-          pasta={`escudos/${time.id}`}
-          currentUrl={time.escudo_url}
-          onUploaded={handleUploaded}
-        />
-        <p className="text-xs text-muted-foreground text-center">PNG ou JPG, preferencialmente quadrado (ex: 200×200px)</p>
+        {time.escudo_url
+          ? <img src={time.escudo_url} alt={time.nome} className="h-24 w-24 rounded-2xl object-cover border border-white/10" />
+          : <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/5 text-2xl font-black" style={{ color: time.cor ?? "#FFD166" }}>{time.nome.slice(0, 2).toUpperCase()}</div>
+        }
+        <ImageUploadBtn label="Enviar escudo" pasta={`escudos/${time.id}`} currentUrl={time.escudo_url} onUploaded={handleUploaded} />
+        <p className="text-xs text-muted-foreground text-center">PNG ou JPG quadrado (ex: 200×200px)</p>
       </div>
     </ModalOverlay>
   );
@@ -476,11 +469,13 @@ function ModalCriarTime({ campeonatoId, onClose }: { campeonatoId: string; onClo
   const [cor, setCor] = useState("#FFD166");
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const toggle = (id: string) => setSelecionados((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
   const handleSubmit = async () => {
     if (!nome.trim()) return;
     await criarTime.mutateAsync({ campeonato_id: campeonatoId, nome: nome.trim(), cor, jogador_ids: selecionados });
     onClose();
   };
+
   return (
     <ModalOverlay onClose={onClose}>
       <h3 className="mb-5 text-xl font-black">Novo time</h3>
@@ -719,7 +714,7 @@ export default function AdminCampeonato() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-6xl space-y-10 px-4 py-10">
+      <div className="mx-auto max-w-3xl space-y-8 px-4 py-10">
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -731,7 +726,7 @@ export default function AdminCampeonato() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Campeonato aberto
             </span>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => setModalConfig(true)} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10 transition">
               <Edit3 className="h-4 w-4" /> Configurações
             </button>
@@ -747,21 +742,39 @@ export default function AdminCampeonato() {
           </div>
         </div>
 
-        {/* Galo atual */}
-        {fotoGalo && (
-          <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
-            <div className="flex items-center gap-5">
-              <img src={fotoGalo} alt="O Galo" className="h-20 w-20 rounded-2xl object-cover border border-amber-500/30" />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão Defensor</p>
-                <p className="mt-1 text-sm text-muted-foreground">Foto do atual campeão a ser destronado.</p>
-              </div>
-              <button onClick={() => setModalConfig(true)} className="ml-auto flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15 transition">
-                <Camera className="h-3.5 w-3.5" /> Atualizar foto
+        {/* ── Card do Galo ── */}
+        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 overflow-hidden">
+          <div className="flex items-stretch gap-0">
+            {/* Foto grande à esquerda */}
+            <div className="relative shrink-0 w-44 bg-black/20">
+              {fotoGalo ? (
+                <img src={fotoGalo} alt="O Galo" className="h-full w-full object-cover" style={{ minHeight: 160 }} />
+              ) : (
+                <div className="flex h-full w-full min-h-40 items-center justify-center text-5xl">🐔</div>
+              )}
+              {/* botão de troca sobreposto */}
+              <button
+                onClick={() => setModalConfig(true)}
+                className="absolute bottom-2 right-2 flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-semibold text-white hover:bg-black/80 transition"
+              >
+                <Camera className="h-3 w-3" /> Trocar
               </button>
             </div>
-          </section>
-        )}
+
+            {/* Info à direita */}
+            <div className="flex flex-1 flex-col justify-center gap-2 p-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão </p>
+
+              {/* Nome editável inline */}
+              <GaloNomeInline campId={camp.id} />
+
+              <p className="text-sm text-muted-foreground">
+                O atual campeão a ser abatido este mês.<br />
+                <span className="text-xs opacity-60">Clique no nome acima para editar.</span>
+              </p>
+            </div>
+          </div>
+        </section>
 
         {/* Times */}
         <section>
@@ -774,24 +787,16 @@ export default function AdminCampeonato() {
               <p className="text-sm">Nenhum time cadastrado. Clique em "Novo time" para começar.</p>
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             {times.map((t, i) => (
               <motion.div key={t.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="group relative rounded-2xl border border-white/10 bg-white/3 p-4">
                 <span className="absolute right-3 top-3 text-xs font-black text-muted-foreground">#{i + 1}</span>
                 <div className="flex items-center gap-3">
-                  {/* Escudo ou placeholder clicável */}
-                  <button
-                    onClick={() => setModalEscudo(t)}
-                    title="Clique para atualizar o escudo"
-                    className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-white/10 hover:border-accent/50 transition group/escudo"
-                  >
-                    {t.escudo_url ? (
-                      <img src={t.escudo_url} alt={t.nome} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-black" style={{ background: t.cor ?? "#FFD166", color: "#111" }}>
-                        {t.nome.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
+                  <button onClick={() => setModalEscudo(t)} title="Clique para atualizar o escudo" className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-white/10 hover:border-accent/50 transition group/escudo">
+                    {t.escudo_url
+                      ? <img src={t.escudo_url} alt={t.nome} className="h-full w-full object-cover" />
+                      : <div className="flex h-full w-full items-center justify-center text-xs font-black" style={{ background: t.cor ?? "#FFD166", color: "#111" }}>{t.nome.slice(0, 2).toUpperCase()}</div>
+                    }
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/escudo:opacity-100 transition">
                       <Upload className="h-4 w-4 text-white" />
                     </div>
@@ -826,10 +831,10 @@ export default function AdminCampeonato() {
           <div className="space-y-3">
             {partidasAgendadas.map((p) => (
               <div key={p.id} className="group flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-white/3 px-5 py-4">
-                <div className="flex flex-1 items-center justify-center gap-3 text-sm font-semibold">
-                  <span className="truncate text-right">{p.time_a?.nome}</span>
+                <div className="flex flex-1 items-center text-sm font-semibold">
+                  <span className="w-0 flex-1 text-right truncate pr-3">{p.time_a?.nome}</span>
                   <span className="shrink-0 rounded-lg bg-white/10 px-3 py-1 text-xs font-black">VS</span>
-                  <span className="truncate">{p.time_b?.nome}</span>
+                  <span className="w-0 flex-1 text-left truncate pl-3">{p.time_b?.nome}</span>
                 </div>
                 {p.data && <span className="text-xs text-muted-foreground">{new Date(p.data).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                 <div className="flex gap-2">
@@ -856,14 +861,14 @@ export default function AdminCampeonato() {
                 const aV = p.gols_a > p.gols_b, bV = p.gols_b > p.gols_a;
                 return (
                   <div key={p.id} className="group flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-white/3 px-5 py-3">
-                    <div className="flex flex-1 items-center justify-center gap-3 text-sm">
-                      <span className={`truncate text-right font-semibold ${bV ? "opacity-40" : ""}`}>{p.time_a?.nome}</span>
+                    <div className="flex flex-1 items-center text-sm">
+                      <span className={`w-0 flex-1 text-right font-semibold truncate pr-3 ${bV ? "opacity-40" : ""}`}>{p.time_a?.nome}</span>
                       <span className="shrink-0 rounded-xl bg-white/10 px-3 py-1 font-black">
                         <span className={aV ? "text-emerald-400" : ""}>{p.gols_a}</span>
                         <span className="mx-1 text-muted-foreground">–</span>
                         <span className={bV ? "text-emerald-400" : ""}>{p.gols_b}</span>
                       </span>
-                      <span className={`truncate font-semibold ${aV ? "opacity-40" : ""}`}>{p.time_b?.nome}</span>
+                      <span className={`w-0 flex-1 text-left font-semibold truncate pl-3 ${aV ? "opacity-40" : ""}`}>{p.time_b?.nome}</span>
                     </div>
                     <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
                       <button onClick={() => setModalEstat(p)} className="flex items-center gap-1.5 rounded-xl bg-blue-500/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-500/30 transition">
