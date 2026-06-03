@@ -1,6 +1,4 @@
-
-
-
+// src/pages/admin/AdminCampeonato.tsx
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -763,13 +761,13 @@ export default function AdminCampeonato() {
 
             {/* Info à direita */}
             <div className="flex flex-1 flex-col justify-center gap-2 p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão </p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão Defensor</p>
 
               {/* Nome editável inline */}
               <GaloNomeInline campId={camp.id} />
 
               <p className="text-sm text-muted-foreground">
-                O atual campeão a ser abatido este mês.<br />
+                O atual campeão a ser destronado este mês.<br />
                 <span className="text-xs opacity-60">Clique no nome acima para editar.</span>
               </p>
             </div>
@@ -870,7 +868,7 @@ export default function AdminCampeonato() {
                       </span>
                       <span className={`w-0 flex-1 text-left font-semibold truncate pl-3 ${aV ? "opacity-40" : ""}`}>{p.time_b?.nome}</span>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
+                    <div className="flex items-center gap-2">
                       <button onClick={() => setModalEstat(p)} className="flex items-center gap-1.5 rounded-xl bg-blue-500/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-500/30 transition">
                         <BarChart3 className="h-3.5 w-3.5" /> Estatísticas
                       </button>

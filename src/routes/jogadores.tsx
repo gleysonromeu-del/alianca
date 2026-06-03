@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { MomentosUpload } from "@/components/site/MomentosUpload";
 import { toast } from "sonner";
 import AdminCampeonato from "@/pages/admin/AdminCampeonato";
-import { ChevronDown } from "lucide-react";
+import { AdminEstatisticas } from "@/pages/admin/AdminEstatisticas";
 
 export const Route = createFileRoute("/jogadores")({
   component: JogadoresPage,
@@ -58,62 +58,7 @@ type Inscricao = {
 };
 
 // Abas do painel admin
-type AdminAba = "inscricoes" | "elenco" | "pagamentos" | "campeonato";
-
-// ── Card de jogador colapsável ────────────────────────────────────────────────
-function JogadorCard({ p }: { p: Jogador }) {
-  const [open, setOpen] = useState(false);
-  const temDetalhes = p.cpf || p.telefone || p.email || p.profissao;
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl overflow-hidden">
-      {/* Linha principal — sempre visível */}
-      <button
-        type="button"
-        onClick={() => temDetalhes && setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition ${
-          temDetalhes ? "hover:bg-white/5 cursor-pointer" : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Avatar inicial */}
-          <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/20 grid place-items-center text-xs font-black text-primary">
-            {(p.apelido || p.nome_completo)?.[0]?.toUpperCase() ?? "?"}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-foreground truncate">
-              {p.nome_completo}
-              {p.numero_camisa ? (
-                <span className="ml-1.5 text-primary">#{p.numero_camisa}</span>
-              ) : null}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              "{p.apelido}" · {p.posicao}
-            </p>
-          </div>
-        </div>
-
-        {temDetalhes && (
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-              open ? "rotate-180" : ""
-            }`}
-          />
-        )}
-      </button>
-
-      {/* Detalhes — expansível */}
-      {open && temDetalhes && (
-        <div className="border-t border-white/10 px-4 py-3 space-y-1 text-xs text-muted-foreground">
-          {p.cpf      && <p>🪪 CPF: {p.cpf}</p>}
-          {p.telefone && <p>📞 {p.telefone}</p>}
-          {p.email    && <p>✉️ {p.email}</p>}
-          {p.profissao && <p>💼 {p.profissao}</p>}
-        </div>
-      )}
-    </div>
-  );
-}
+type AdminAba = "inscricoes" | "elenco" | "pagamentos" | "campeonato" | "estatisticas";
 
 function JogadoresPage() {
   const { user, loading } = useAuth();
@@ -300,6 +245,7 @@ function JogadoresPage() {
     { id: "elenco", label: "Elenco" },
     { id: "pagamentos", label: "Comprovantes" },
     { id: "campeonato", label: "⚽ Campeonato" },
+    { id: "estatisticas", label: "📊 Estatísticas" },
   ];
 
   return (
@@ -522,19 +468,23 @@ function JogadoresPage() {
             {/* ── Aba: Elenco ── */}
             {adminAba === "elenco" && (
               <>
-                <h2 className="text-xl font-bold text-foreground mb-1">
-                  Elenco ({jogadores.length})
-                </h2>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Clique em um jogador para ver os detalhes.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-10">
+                <h2 className="text-xl font-bold text-foreground mb-4">Elenco ({jogadores.length})</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
                   {jogadores.map((p) => (
-                    <JogadorCard key={p.id} p={p} />
+                    <div key={p.id} className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl p-4">
+                      <p className="font-semibold text-foreground">
+                        {p.nome_completo} {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">"{p.apelido}" · {p.posicao}</p>
+                      <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                        {p.cpf && <p>CPF: {p.cpf}</p>}
+                        {p.telefone && <p>📞 {p.telefone}</p>}
+                        {p.email && <p>✉️ {p.email}</p>}
+                        {p.profissao && <p>💼 {p.profissao}</p>}
+                      </div>
+                    </div>
                   ))}
-                  {jogadores.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Nenhum jogador cadastrado.</p>
-                  )}
+                  {jogadores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador cadastrado.</p>}
                 </div>
               </>
             )}
@@ -563,12 +513,17 @@ function JogadoresPage() {
                   })}
                   {pagamentos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum comprovante enviado ainda.</p>}
                 </div>
-            </>
+              </>
             )}
 
             {/* ── Aba: Campeonato ── */}
             {adminAba === "campeonato" && (
               <AdminCampeonato />
+            )}
+
+            {/* ── Aba: Estatísticas ── */}
+            {adminAba === "estatisticas" && (
+              <AdminEstatisticas />
             )}
           </>
         )}

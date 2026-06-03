@@ -126,13 +126,37 @@ export function CampeonatoMensalSection() {
 
       if (partidasData) setPartidas(partidasData as any);
 
-      const partidaIds = (partidasData || []).map((p: any) => p.id);
-      if (partidaIds.length > 0) {
-        // Queries separadas para evitar problemas com FKs ambíguas
+      // ── Estatísticas ACUMULADAS DO ANO (jan-dez) ──────────────────────────────
+      // Busca todos os campeonatos do ano atual
+      const anoAtual = new Date().getFullYear();
+      const inicioAno = `${anoAtual}-01-01`;
+      const fimAno = `${anoAtual}-12-31`;
+
+      const { data: campsAno } = await supabase
+        .from("campeonato_mensal")
+        .select("id")
+        .gte("mes", inicioAno)
+        .lte("mes", fimAno);
+
+      const campIds = (campsAno ?? []).map((c: any) => c.id);
+
+      // Partidas finalizadas do ano todo
+      let todasPartidasIds: string[] = [];
+      if (campIds.length > 0) {
+        const { data: todasPartidas } = await supabase
+          .from("partidas")
+          .select("id")
+          .in("campeonato_id", campIds)
+          .eq("status", "finalizada");
+        todasPartidasIds = (todasPartidas ?? []).map((p: any) => p.id);
+      }
+
+      // Estatísticas acumuladas do ano
+      if (todasPartidasIds.length > 0) {
         const { data: estatData } = await supabase
           .from("estatisticas_partida")
           .select("jogador_id, time_id, gols, assistencias, amarelos, vermelhos, presente")
-          .in("partida_id", partidaIds)
+          .in("partida_id", todasPartidasIds)
           .eq("presente", true);
 
         if (estatData && estatData.length > 0) {
@@ -178,6 +202,10 @@ export function CampeonatoMensalSection() {
           setJogadores(Object.values(map));
         }
       }
+
+      // Partidas do mês atual para exibir na aba "Partidas"
+      const partidaIds = (partidasData || []).map((p: any) => p.id);
+      void partidaIds; // já usado acima via todasPartidasIds
     } finally {
       setLoading(false);
     }
@@ -384,8 +412,8 @@ export function CampeonatoMensalSection() {
           <div style={S.modal}>
             <div style={S.mHead}>
               <div>
-                <p style={S.mTitle}>Estatísticas — Campeonato do Mês</p>
-                <p style={S.mSub}>{mesCapital}</p>
+                <p style={S.mTitle}>Estatísticas — Acumulado do Ano</p>
+                <p style={S.mSub}>Gols e assistências acumulados de jan a dez · {mesCapital} (partidas do mês)</p>
               </div>
               <button style={S.closeBtn} onClick={() => setShowModal(false)}><X size={16} /></button>
             </div>
