@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, BarChart3, Crown, ArrowRight, X, ChevronRight } from "lucide-react";
+import { Trophy, Crown, X, ChevronRight } from "lucide-react";
 
 interface CampeonatoMensal {
   id: string;
@@ -250,10 +250,6 @@ export function CampeonatoMensalSection() {
     pos: { fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.3)" },
     tNome: { fontSize: 13, fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 7 },
     pts: { fontSize: 14, fontWeight: 800, color: "#f59e0b" },
-    cta: { background: "linear-gradient(135deg,rgba(59,130,246,0.09) 0%,rgba(99,102,241,0.07) 100%)", border: "1px solid rgba(59,130,246,0.18)", borderRadius: 16, padding: "26px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 } as React.CSSProperties,
-    ctaTitle: { fontSize: 19, fontWeight: 800, color: "#fff", margin: "0 0 5px" },
-    ctaDesc: { fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0 },
-    ctaBtn: { background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "13px 26px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 },
     overlay: { position: "fixed" as const, inset: 0, background: "rgba(4,9,28,0.93)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(5px)" },
     modal: { background: "#0d1435", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, width: "100%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto" as const, padding: "30px 28px" },
     mHead: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 },
@@ -294,17 +290,6 @@ export function CampeonatoMensalSection() {
           <div style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", padding: "60px 0", fontSize: 14 }}>Carregando...</div>
         ) : (
           <>
-            {/* Card do Galo */}
-            {fotoGalo && (
-              <div style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.08) 0%,rgba(245,158,11,0.04) 100%)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: "20px 24px", display: "flex", alignItems: "center", gap: 20, marginBottom: 18 }}>
-                <img src={fotoGalo} alt="O Galo" style={{ width: 72, height: 72, borderRadius: 12, objectFit: "cover", border: "2px solid rgba(245,158,11,0.3)", flexShrink: 0 }} />
-                <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "#f59e0b", margin: "0 0 4px" }}>🐔 O Galo — Campeão Defensor</p>
-                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", margin: 0 }}>O atual campeão a ser destronado este mês.</p>
-                </div>
-              </div>
-            )}
-
             {/* Grid: Campeão + Classificação */}
             <div style={S.grid}>
               {/* O Galo — Campeão Defensor */}
@@ -387,21 +372,7 @@ export function CampeonatoMensalSection() {
               </div>
             </div>
 
-            {/* CTA Estatísticas */}
-            <div style={S.cta}>
-              <div>
-                <p style={S.ctaTitle}>
-                  <BarChart3 size={17} style={{ display: "inline", verticalAlign: "-3px", marginRight: 7, color: "#60a5fa" }} />
-                  Estatísticas do campeonato
-                </p>
-                <p style={S.ctaDesc}>Artilheiros, assistências, cartões e resultados de todas as rodadas.</p>
-              </div>
-              <button style={S.ctaBtn} onClick={() => setShowModal(true)}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}>
-                Ver estatísticas <ArrowRight size={15} />
-              </button>
-            </div>
+
           </>
         )}
       </div>
