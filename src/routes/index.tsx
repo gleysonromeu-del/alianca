@@ -8,6 +8,8 @@ import { Footer } from "@/components/site/Footer";
 import { WatermarkBackground } from "@/components/site/WatermarkBackground";
 import { Aniversariantes } from "@/components/site/Aniversariantes";
 import { MomentosCarousel } from "@/components/site/MomentosCarousel";
+import { AliancaStore } from "@/components/site/AliancaStore";
+import { CaixaSugestoes } from "@/components/site/CaixaSugestoes";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -39,6 +41,8 @@ function Index() {
         <About />
         <SocialProjects />
         <MomentosCarousel />
+        <AliancaStore />
+        <CaixaSugestoes />
         <Aniversariantes />
       </main>
       <Footer />

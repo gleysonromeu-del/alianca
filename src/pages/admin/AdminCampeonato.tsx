@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trophy, Calendar, Shield, Trash2, CheckCircle2,
   Beer, AlertTriangle, X, Loader2, BarChart3, Upload, Camera, Edit3,
+  ShoppingBag, MessageSquare,
 } from "lucide-react";
 import {
   useCampeonatoAtual,
@@ -24,6 +25,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AdminStore } from "@/pages/admin/AdminStore";
+import { AdminSugestoes } from "@/pages/admin/AdminSugestoes";
 
 // ─── Upload helper ─────────────────────────────────────────────────────────────
 
@@ -589,8 +592,12 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
   const [obs, setObs] = useState(partida.observacoes ?? "");
 
   const handleSubmit = async () => {
-    await finalizarPartida.mutateAsync({ partida_id: partida.id, gols_a: golsA, gols_b: golsB, observacoes: obs || null });
-    onClose();
+    try {
+      await finalizarPartida.mutateAsync({ partida_id: partida.id, gols_a: golsA, gols_b: golsB, observacoes: obs || null });
+      onClose();
+    } catch (e) {
+      console.error("Erro ao finalizar partida:", e);
+    }
   };
 
   return (
@@ -627,9 +634,9 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
   );
 }
 
-// ─── Página Principal ─────────────────────────────────────────────────────────
+// ─── Aba: Campeonato ──────────────────────────────────────────────────────────
 
-export default function AdminCampeonato() {
+function TabCampeonato() {
   useCampeonatoRealtime();
 
   const { data: camp, isLoading: loadingCamp } = useCampeonatoAtual();
@@ -712,12 +719,11 @@ export default function AdminCampeonato() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-10">
-
+      <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-accent">Admin · Campeonato</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent">Campeonato</p>
             <h1 className="text-3xl font-black tracking-tight">{nomeConfig || formatMes(camp.mes)}</h1>
             {nomeConfig && <p className="text-sm text-muted-foreground">{formatMes(camp.mes)}</p>}
             <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
@@ -740,45 +746,30 @@ export default function AdminCampeonato() {
           </div>
         </div>
 
-        {/* ── Card do Galo ── */}
+        {/* Card do Galo */}
         <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 overflow-hidden">
           <div className="flex items-stretch gap-0">
-            {/* Foto grande à esquerda */}
             <div className="relative shrink-0 w-44 bg-black/20">
               {fotoGalo ? (
                 <img src={fotoGalo} alt="O Galo" className="h-full w-full object-cover" style={{ minHeight: 160 }} />
               ) : (
                 <div className="flex h-full w-full min-h-40 items-center justify-center text-5xl">🐔</div>
               )}
-              {/* botão de troca sobreposto */}
-              <button
-                onClick={() => setModalConfig(true)}
-                className="absolute bottom-2 right-2 flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-semibold text-white hover:bg-black/80 transition"
-              >
+              <button onClick={() => setModalConfig(true)} className="absolute bottom-2 right-2 flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-semibold text-white hover:bg-black/80 transition">
                 <Camera className="h-3 w-3" /> Trocar
               </button>
             </div>
-
-            {/* Info à direita */}
             <div className="flex flex-1 flex-col justify-center gap-2 p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão Defensor</p>
-
-              {/* Nome editável inline */}
               <GaloNomeInline campId={camp.id} />
-
-              <p className="text-sm text-muted-foreground">
-                O atual campeão a ser destronado este mês.<br />
-                <span className="text-xs opacity-60">Clique no nome acima para editar.</span>
-              </p>
+              <p className="text-sm text-muted-foreground">O atual campeão a ser destronado este mês.<br /><span className="text-xs opacity-60">Clique no nome acima para editar.</span></p>
             </div>
           </div>
         </section>
 
         {/* Times */}
         <section>
-          <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
-            <Shield className="h-5 w-5 text-accent" /> Times ({times.length})
-          </h2>
+          <h2 className="mb-4 flex items-center gap-2 text-xl font-black"><Shield className="h-5 w-5 text-accent" /> Times ({times.length})</h2>
           {times.length === 0 && (
             <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-muted-foreground">
               <Shield className="mx-auto mb-3 h-8 w-8 opacity-30" />
@@ -791,13 +782,8 @@ export default function AdminCampeonato() {
                 <span className="absolute right-3 top-3 text-xs font-black text-muted-foreground">#{i + 1}</span>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setModalEscudo(t)} title="Clique para atualizar o escudo" className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-white/10 hover:border-accent/50 transition group/escudo">
-                    {t.escudo_url
-                      ? <img src={t.escudo_url} alt={t.nome} className="h-full w-full object-cover" />
-                      : <div className="flex h-full w-full items-center justify-center text-xs font-black" style={{ background: t.cor ?? "#FFD166", color: "#111" }}>{t.nome.slice(0, 2).toUpperCase()}</div>
-                    }
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/escudo:opacity-100 transition">
-                      <Upload className="h-4 w-4 text-white" />
-                    </div>
+                    {t.escudo_url ? <img src={t.escudo_url} alt={t.nome} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-black" style={{ background: t.cor ?? "#FFD166", color: "#111" }}>{t.nome.slice(0, 2).toUpperCase()}</div>}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/escudo:opacity-100 transition"><Upload className="h-4 w-4 text-white" /></div>
                   </button>
                   <div className="min-w-0">
                     <p className="truncate font-bold">{t.nome}</p>
@@ -817,14 +803,9 @@ export default function AdminCampeonato() {
 
         {/* Partidas Agendadas */}
         <section>
-          <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
-            <Calendar className="h-5 w-5 text-amber-400" /> Partidas agendadas ({partidasAgendadas.length})
-          </h2>
+          <h2 className="mb-4 flex items-center gap-2 text-xl font-black"><Calendar className="h-5 w-5 text-amber-400" /> Partidas agendadas ({partidasAgendadas.length})</h2>
           {partidasAgendadas.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma partida agendada.{" "}
-              {times.length >= 2 && <button onClick={() => setModalPartida(true)} className="text-accent underline">Agendar agora</button>}
-            </p>
+            <p className="text-sm text-muted-foreground">Nenhuma partida agendada.{" "}{times.length >= 2 && <button onClick={() => setModalPartida(true)} className="text-accent underline">Agendar agora</button>}</p>
           )}
           <div className="space-y-3">
             {partidasAgendadas.map((p) => (
@@ -851,9 +832,7 @@ export default function AdminCampeonato() {
         {/* Resultados */}
         {partidasFinalizadas.length > 0 && (
           <section>
-            <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" /> Resultados ({partidasFinalizadas.length})
-            </h2>
+            <h2 className="mb-4 flex items-center gap-2 text-xl font-black"><CheckCircle2 className="h-5 w-5 text-emerald-400" /> Resultados ({partidasFinalizadas.length})</h2>
             <div className="space-y-2">
               {[...partidasFinalizadas].reverse().map((p) => {
                 const aV = p.gols_a > p.gols_b, bV = p.gols_b > p.gols_a;
@@ -886,5 +865,49 @@ export default function AdminCampeonato() {
         )}
       </div>
     </>
+  );
+}
+
+// ─── Página Principal com Abas ────────────────────────────────────────────────
+
+type AdminAba = "campeonato" | "store" | "sugestoes";
+
+export default function AdminCampeonato() {
+  const [aba, setAba] = useState<AdminAba>("campeonato");
+
+  const abas: { id: AdminAba; label: string; icon: React.ReactNode }[] = [
+    { id: "campeonato", label: "Campeonato", icon: <Trophy className="h-4 w-4" /> },
+    { id: "store", label: "Store", icon: <ShoppingBag className="h-4 w-4" /> },
+    { id: "sugestoes", label: "Sugestões", icon: <MessageSquare className="h-4 w-4" /> },
+  ];
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      {/* Header com abas */}
+      <div className="mb-8">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-accent">Painel Admin</p>
+        <div className="flex gap-2 flex-wrap">
+          {abas.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setAba(a.id)}
+              className={`flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold transition ${
+                aba === a.id
+                  ? "bg-accent text-accent-foreground shadow-lg"
+                  : "border border-white/10 bg-white/3 text-muted-foreground hover:bg-white/8 hover:text-foreground"
+              }`}
+            >
+              {a.icon}
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo da aba */}
+      {aba === "campeonato" && <TabCampeonato />}
+      {aba === "store" && <AdminStore />}
+      {aba === "sugestoes" && <AdminSugestoes />}
+    </div>
   );
 }

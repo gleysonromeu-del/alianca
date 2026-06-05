@@ -121,8 +121,7 @@ export function CampeonatoMensalSection() {
            time_a:times!partidas_time_a_id_fkey(nome, cor),
            time_b:times!partidas_time_b_id_fkey(nome, cor)`)
         .eq("campeonato_id", camp.id)
-        .eq("status", "finalizada")
-        .order("data", { ascending: false });
+        .order("data", { ascending: true });
 
       if (partidasData) setPartidas(partidasData as any);
 
@@ -372,6 +371,149 @@ export function CampeonatoMensalSection() {
               </div>
             </div>
 
+            {/* ── Confrontos do Mês ── */}
+            {partidas.length > 0 && (() => {
+              // Agrupa partidas por rodada (data)
+              const rodadasMap: Record<string, typeof partidas> = {};
+              [...partidas].reverse().forEach((p) => {
+                const key = p.data
+                  ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })
+                  : "Sem data";
+                if (!rodadasMap[key]) rodadasMap[key] = [];
+                rodadasMap[key].push(p);
+              });
+              const rodadas = Object.entries(rodadasMap);
+              const rodadaLabel = ["1ª RODADA", "2ª RODADA", "3ª RODADA", "4ª RODADA", "SEMIFINAL", "FINAL", "JOGO DA CERVEJA"];
+
+              return (
+                <div style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  marginTop: 18,
+                }}>
+                  {/* Header da tabela */}
+                  <div style={{
+                    background: "rgba(59,130,246,0.12)",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    padding: "14px 20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      ⚽ Confrontos do Mês
+                    </p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: 0 }}>
+                      {partidas.filter(p => p.status === "finalizada").length} finalizado{partidas.filter(p => p.status === "finalizada").length !== 1 ? "s" : ""} · {partidas.filter(p => p.status === "agendada").length} a jogar
+                    </p>
+                  </div>
+
+                  {/* Cabeçalho colunas */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 44px 28px 44px 1fr 90px",
+                    gap: 0,
+                    padding: "8px 20px",
+                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  }}>
+                    {["TIME A", "", "", "", "TIME B", "DATA"].map((h, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em", textAlign: i === 0 ? "left" : i === 4 ? "right" : "center" as any }}>
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Rodadas */}
+                  {rodadas.map(([dataLabel, jogos], ri) => (
+                    <div key={dataLabel}>
+                      {/* Label da rodada */}
+                      <div style={{
+                        padding: "7px 20px",
+                        background: "rgba(255,255,255,0.025)",
+                        borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.05)" : undefined,
+                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                          {rodadaLabel[ri] ?? `${ri + 1}ª RODADA`}
+                        </span>
+                      </div>
+
+                      {/* Jogos da rodada */}
+                      {jogos.map((p, ji) => {
+                        const aV = p.status === "finalizada" && p.gols_a > p.gols_b;
+                        const bV = p.status === "finalizada" && p.gols_b > p.gols_a;
+                        const finalizada = p.status === "finalizada";
+                        const taA = p.time_a as any;
+                        const taB = p.time_b as any;
+                        const timeA = times.find((t) => t.nome === taA?.nome);
+                        const timeB = times.find((t) => t.nome === taB?.nome);
+                        const dt = p.data
+                          ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })
+                          : "—";
+
+                        return (
+                          <div key={p.id} style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 44px 28px 44px 1fr 90px",
+                            alignItems: "center",
+                            gap: 0,
+                            padding: "10px 20px",
+                            borderBottom: ji < jogos.length - 1 ? "1px solid rgba(255,255,255,0.03)" : undefined,
+                            background: ji % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)",
+                          }}>
+                            {/* Time A */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {timeA?.escudo_url
+                                ? <img src={timeA.escudo_url} alt={taA?.nome} style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                                : <div style={{ width: 28, height: 28, borderRadius: 6, background: taA?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>
+                                    {(taA?.nome ?? "").slice(0, 2).toUpperCase()}
+                                  </div>
+                              }
+                              <span style={{ fontSize: 12, fontWeight: aV ? 800 : 500, color: aV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {taA?.nome ?? "—"}
+                              </span>
+                            </div>
+
+                            {/* Gols A */}
+                            <div style={{ textAlign: "center", fontSize: 20, fontWeight: 900, color: aV ? "#f59e0b" : "rgba(255,255,255,0.7)" }}>
+                              {finalizada ? p.gols_a : <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>-</span>}
+                            </div>
+
+                            {/* X */}
+                            <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>×</div>
+
+                            {/* Gols B */}
+                            <div style={{ textAlign: "center", fontSize: 20, fontWeight: 900, color: bV ? "#f59e0b" : "rgba(255,255,255,0.7)" }}>
+                              {finalizada ? p.gols_b : <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>-</span>}
+                            </div>
+
+                            {/* Time B */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: bV ? 800 : 500, color: bV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>
+                                {taB?.nome ?? "—"}
+                              </span>
+                              {timeB?.escudo_url
+                                ? <img src={timeB.escudo_url} alt={taB?.nome} style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                                : <div style={{ width: 28, height: 28, borderRadius: 6, background: taB?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>
+                                    {(taB?.nome ?? "").slice(0, 2).toUpperCase()}
+                                  </div>
+                              }
+                            </div>
+
+                            {/* Data */}
+                            <div style={{ textAlign: "right", fontSize: 11, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
+                              {dt}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
           </>
         )}
