@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,17 +15,18 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { user, isAdmin, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const justLoggedIn = useRef(false);
 
+  const { containerRef, token, reset } = useTurnstile();
+
   useEffect(() => {
     if (loading) return;
     if (!user) return;
-    // Admin e jogador vão para /jogadores — o painel admin está lá dentro
     navigate({ to: "/jogadores", replace: true });
   }, [user, loading, navigate]);
 
@@ -39,11 +41,22 @@ function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!token) {
+      setError("Confirme que você não é um robô.");
+      return;
+    }
+
     setSubmitting(true);
+
+    // Delay artificial de 1s para dificultar timing attacks (tarefa 4.2 antecipada)
+    await new Promise((r) => setTimeout(r, 1000));
+
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) {
       setSubmitting(false);
       setError("E-mail ou senha incorretos.");
+      reset(); // força novo desafio Turnstile após erro
       return;
     }
     justLoggedIn.current = true;
@@ -69,8 +82,12 @@ function LoginPage() {
             <Label htmlFor="password">Senha</Label>
             <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} />
           </div>
+
+          {/* Widget Turnstile */}
+          <div ref={containerRef} />
+
           {error && <p className="text-sm text-destructive rounded-lg bg-destructive/10 px-3 py-2">{error}</p>}
-          <Button type="submit" className="w-full" disabled={submitting}>
+          <Button type="submit" className="w-full" disabled={submitting || !token}>
             {submitting ? (
               <span className="flex items-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

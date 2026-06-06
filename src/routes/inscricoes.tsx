@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase, POSICOES } from "@/integrations/supabase/client";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,15 +25,8 @@ type Form = {
 };
 
 const ORDEM: (keyof Form)[] = [
-  "nome_completo",
-  "apelido",
-  "cpf",
-  "telefone",
-  "data_nascimento",
-  "profissao",
-  "posicao",
-  "email",
-  "quem_indicou",
+  "nome_completo", "apelido", "cpf", "telefone",
+  "data_nascimento", "profissao", "posicao", "email", "quem_indicou",
 ];
 
 const OPCIONAIS = new Set<keyof Form>(["profissao"]);
@@ -41,23 +35,18 @@ function InscricoesPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { containerRef, token, reset } = useTurnstile();
+
   const [form, setForm] = useState<Form>({
-    nome_completo: "",
-    apelido: "",
-    cpf: "",
-    telefone: "",
-    data_nascimento: "",
-    profissao: "",
-    posicao: "",
-    email: "",
-    quem_indicou: "",
+    nome_completo: "", apelido: "", cpf: "", telefone: "",
+    data_nascimento: "", profissao: "", posicao: "", email: "", quem_indicou: "",
   });
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  // Sequencial: campo só libera se TODOS os anteriores obrigatórios estiverem preenchidos
   function liberado(campo: keyof Form): boolean {
     const idx = ORDEM.indexOf(campo);
     for (let i = 0; i < idx; i++) {
@@ -71,7 +60,12 @@ function InscricoesPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    // valida sequência
+
+    if (!token) {
+      setError("Confirme que você não é um robô.");
+      return;
+    }
+
     for (const c of ORDEM) {
       if (OPCIONAIS.has(c)) continue;
       if (!form[c]?.toString().trim()) {
@@ -79,18 +73,19 @@ function InscricoesPage() {
         return;
       }
     }
+
     setLoading(true);
     try {
       const { error: insErr } = await supabase.from("inscricoes").insert({
-        nome_completo: form.nome_completo,
-        apelido: form.apelido,
-        cpf: form.cpf,
-        telefone: form.telefone,
+        nome_completo: form.nome_completo.trim(),
+        apelido: form.apelido.trim(),
+        cpf: form.cpf.trim(),
+        telefone: form.telefone.trim(),
         data_nascimento: form.data_nascimento,
-        profissao: form.profissao || null,
+        profissao: form.profissao.trim() || null,
         posicao: form.posicao,
-        email: form.email,
-        quem_indicou: form.quem_indicou,
+        email: form.email.trim().toLowerCase(),
+        quem_indicou: form.quem_indicou.trim(),
         status: "pendente",
       });
       if (insErr) throw insErr;
@@ -98,6 +93,7 @@ function InscricoesPage() {
       navigate({ to: "/" });
     } catch (err: any) {
       setError(err.message ?? "Erro ao enviar inscrição");
+      reset();
     } finally {
       setLoading(false);
     }
@@ -139,8 +135,7 @@ function InscricoesPage() {
           <div className={`space-y-2 ${liberado("posicao") ? "" : "opacity-40 pointer-events-none"}`}>
             <Label>7. Posição *</Label>
             <select
-              value={form.posicao}
-              onChange={(e) => set("posicao", e.target.value)}
+              value={form.posicao} onChange={(e) => set("posicao", e.target.value)}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             >
               <option value="">Selecione...</option>
@@ -156,10 +151,13 @@ function InscricoesPage() {
             <Input value={form.quem_indicou} onChange={(e) => set("quem_indicou", e.target.value)} placeholder="Nome de quem te indicou" />
           </div>
 
+          {/* Widget Turnstile */}
+          <div className="md:col-span-2" ref={containerRef} />
+
           {error && <p className="md:col-span-2 text-sm text-destructive">{error}</p>}
 
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
-            <Button type="submit" className="flex-1" disabled={loading}>
+            <Button type="submit" className="flex-1" disabled={loading || !token}>
               {loading ? "Enviando..." : "Enviar inscrição"}
             </Button>
             <Link to="/" className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-input px-4 text-sm font-medium hover:bg-accent">

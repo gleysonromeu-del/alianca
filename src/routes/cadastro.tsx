@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase, POSICOES } from "@/integrations/supabase/client";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,8 @@ function CadastroPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const { containerRef, token, reset } = useTurnstile();
 
   const [form, setForm] = useState<{
     nome_completo: string;
@@ -46,6 +49,18 @@ function CadastroPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!token) {
+      setError("Confirme que você não é um robô.");
+      return;
+    }
+
+    // Validação de senha mínima 8 chars (tarefa 2.3)
+    if (form.password.length < 8) {
+      setError("A senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: signUp, error: signUpErr } = await supabase.auth.signUp({
@@ -70,50 +85,37 @@ function CadastroPage() {
       const user = signUp.user;
       if (!user) throw new Error("Falha ao criar usuário.");
 
-      // Login imediato para garantir sessão (caso confirmação esteja desativada)
       if (!signUp.session) {
-        await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password,
-        });
+        await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
       }
 
       const payload = {
         id: user.id,
-        nome_completo: form.nome_completo,
-        apelido: form.apelido,
-        cpf: form.cpf,
+        nome_completo: form.nome_completo.trim(),
+        apelido: form.apelido.trim(),
+        cpf: form.cpf.trim(),
         data_nascimento: form.data_nascimento || null,
-        profissao: form.profissao,
-        telefone: form.telefone,
+        profissao: form.profissao.trim() || null,
+        telefone: form.telefone.trim(),
         posicao: form.posicao,
         numero_camisa: form.numero_camisa ? Number(form.numero_camisa) : null,
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         ativo: true,
       };
 
-      const { error: upErr } = await supabase
-        .from("jogadores")
-        .upsert(payload, { onConflict: "id" });
+      const { error: upErr } = await supabase.from("jogadores").upsert(payload, { onConflict: "id" });
       if (upErr) throw upErr;
 
-      // Limpa o formulário para não deixar email/senha visíveis
       setForm({
-        nome_completo: "",
-        apelido: "",
-        cpf: "",
-        data_nascimento: "",
-        profissao: "",
-        telefone: "",
-        posicao: POSICOES[0],
-        numero_camisa: "",
-        email: "",
-        password: "",
+        nome_completo: "", apelido: "", cpf: "", data_nascimento: "",
+        profissao: "", telefone: "", posicao: POSICOES[0],
+        numero_camisa: "", email: "", password: "",
       });
 
       navigate({ to: "/jogadores" });
     } catch (err: any) {
       setError(err.message ?? "Erro ao cadastrar");
+      reset();
     } finally {
       setLoading(false);
     }
@@ -137,12 +139,8 @@ function CadastroPage() {
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF *</Label>
             <Input
-              id="cpf"
-              required
-              inputMode="numeric"
-              maxLength={14}
-              placeholder="000.000.000-00"
-              value={form.cpf}
+              id="cpf" required inputMode="numeric" maxLength={14}
+              placeholder="000.000.000-00" value={form.cpf}
               onChange={(e) => set("cpf", e.target.value)}
             />
           </div>
@@ -152,13 +150,7 @@ function CadastroPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="data_nascimento">Data de nascimento *</Label>
-            <Input
-              id="data_nascimento"
-              type="date"
-              required
-              value={form.data_nascimento}
-              onChange={(e) => set("data_nascimento", e.target.value)}
-            />
+            <Input id="data_nascimento" type="date" required value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="profissao">Profissão</Label>
@@ -167,15 +159,11 @@ function CadastroPage() {
           <div className="space-y-2">
             <Label htmlFor="posicao">Posição *</Label>
             <select
-              id="posicao"
-              required
-              value={form.posicao}
+              id="posicao" required value={form.posicao}
               onChange={(e) => set("posicao", e.target.value as (typeof POSICOES)[number])}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             >
-              {POSICOES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              {POSICOES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div className="space-y-2">
@@ -191,15 +179,25 @@ function CadastroPage() {
             <Input id="email" name="cad_email" type="email" autoComplete="off" required value={form.email} onChange={(e) => set("email", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha *</Label>
-            <Input id="password" name="cad_password" type="password" autoComplete="new-password" required minLength={6} value={form.password} onChange={(e) => set("password", e.target.value)} />
+            <Label htmlFor="password">
+              Senha * <span className="text-xs text-muted-foreground">(mínimo 8 caracteres)</span>
+            </Label>
+            <Input
+              id="password" name="cad_password" type="password"
+              autoComplete="new-password" required
+              minLength={8}  // ← era 6, agora 8 (tarefa 2.3)
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
+            />
           </div>
 
+          {/* Widget Turnstile */}
+          <div className="md:col-span-2" ref={containerRef} />
 
           {error && <p className="md:col-span-2 text-sm text-destructive">{error}</p>}
 
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
-            <Button type="submit" className="flex-1" disabled={loading}>
+            <Button type="submit" className="flex-1" disabled={loading || !token}>
               {loading ? "Cadastrando..." : "Cadastrar"}
             </Button>
             <Link to="/login" className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-input px-4 text-sm font-medium hover:bg-accent">

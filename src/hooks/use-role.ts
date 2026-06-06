@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const ADMIN_EMAILS = ["aliancacgec2004@gmail.com"];
+// ⚠️  ADMIN_EMAILS removido — a verificação de admin agora é feita
+//     exclusivamente via tabela user_roles no banco (RLS protegida).
+//     Para promover alguém a admin, rode o SQL de setup no Supabase.
 
 export function useIsAdmin(userId: string | undefined) {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -14,24 +16,15 @@ export function useIsAdmin(userId: string | undefined) {
       return;
     }
     (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const email = userData.user?.email?.toLowerCase();
-      const isHardcodedAdmin = !!email && ADMIN_EMAILS.includes(email);
-
-      if (isHardcodedAdmin) {
-        // tenta persistir no banco (pode falhar por RLS — não bloqueia)
-        await supabase
-          .from("user_roles")
-          .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
-      }
-
+      // Consulta apenas o banco — sem comparação de e-mail no cliente
       const { data } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .eq("role", "admin")
         .maybeSingle();
-      setIsAdmin(!!data || isHardcodedAdmin);
+
+      setIsAdmin(!!data);
       setLoading(false);
     })();
   }, [userId]);

@@ -2,7 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-const ADMIN_EMAILS = ["aliancacgec2004@gmail.com"];
+// ⚠️  ADMIN_EMAILS removido — a verificação de admin agora é feita
+//     exclusivamente via tabela user_roles no banco (RLS protegida).
+//     Para promover alguém a admin, rode o SQL de setup no Supabase.
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -23,16 +25,7 @@ export function useAuth() {
     async function resolveAdmin(u: User | null): Promise<boolean> {
       if (!u) return false;
 
-      const email = u.email?.toLowerCase() ?? "";
-      if (ADMIN_EMAILS.includes(email)) {
-        // Upsert em background — não bloqueia a resolução
-        supabase
-          .from("user_roles")
-          .upsert({ user_id: u.id, role: "admin" }, { onConflict: "user_id,role" })
-          .then(() => {});
-        return true;
-      }
-
+      // Consulta apenas o banco — sem comparação de e-mail no cliente
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -56,7 +49,7 @@ export function useAuth() {
 
       if (!mounted.current) return;
       setIsAdmin(admin);
-      setLoading(false); // só libera depois que isAdmin está resolvido
+      setLoading(false);
     });
 
     // ── Mudanças de estado (login / logout / refresh de token) ─────────────────
