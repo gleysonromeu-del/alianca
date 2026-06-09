@@ -18,6 +18,41 @@ export const Route = createFileRoute("/jogadores")({
 
 const ADMIN_WHATSAPP = "5511924490876";
 
+function mascaraCPF(cpf: string | null | undefined): string {
+  if (!cpf) return "—";
+  const nums = cpf.replace(/\D/g, "");
+  if (nums.length !== 11) return cpf;
+  return `***.${nums.slice(3, 6)}.${nums.slice(6, 9)}-**`;
+}
+
+function JogadorCard({ p }: { p: Jogador }) {
+  const [expandido, setExpandido] = useState(false);
+  return (
+    <div
+      className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl p-4 cursor-pointer hover:border-white/20 transition"
+      onClick={() => setExpandido((v) => !v)}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-foreground">
+            {p.nome_completo} {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
+          </p>
+          <p className="text-xs text-muted-foreground">"{p.apelido}" · {p.posicao}</p>
+        </div>
+        <span className="text-xs text-muted-foreground">{expandido ? "▲" : "▼"}</span>
+      </div>
+      {expandido && (
+        <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground space-y-0.5">
+          {p.cpf && <p>CPF: {mascaraCPF(p.cpf)}</p>}
+          {p.telefone && <p>📞 {p.telefone}</p>}
+          {p.email && <p>✉️ {p.email}</p>}
+          {p.profissao && <p>💼 {p.profissao}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Jogador = {
   id: string;
   nome_completo: string;
@@ -470,34 +505,7 @@ function JogadoresPage() {
               <>
                 <h2 className="text-xl font-bold text-foreground mb-4">Elenco ({jogadores.length})</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                  {jogadores.map((p) => {
-  const [expandido, setExpandido] = useState(false);
-  return (
-    <div
-      key={p.id}
-      className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl p-4 cursor-pointer hover:border-white/20 transition"
-      onClick={() => setExpandido((v) => !v)}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-semibold text-foreground">
-            {p.nome_completo} {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
-          </p>
-          <p className="text-xs text-muted-foreground">"{p.apelido}" · {p.posicao}</p>
-        </div>
-        <span className="text-xs text-muted-foreground">{expandido ? "▲" : "▼"}</span>
-      </div>
-      {expandido && (
-        <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground space-y-0.5">
-          {p.cpf && <p>CPF: {p.cpf}</p>}
-          {p.telefone && <p>📞 {p.telefone}</p>}
-          {p.email && <p>✉️ {p.email}</p>}
-          {p.profissao && <p>💼 {p.profissao}</p>}
-        </div>
-      )}
-    </div>
-  );
-})}
+                  {jogadores.map((p) => <JogadorCard key={p.id} p={p} />)}
                   {jogadores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador cadastrado.</p>}
                 </div>
               </>

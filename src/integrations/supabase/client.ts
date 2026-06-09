@@ -1,9 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://sazstwawpmvgcnhechwl.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_mQECq1BgrO3ROIOIdhP0FQ_rQL786xB";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    "Variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não estão definidas. " +
+    "Copie .env.example para .env e preencha com seus valores."
+  );
+}
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
