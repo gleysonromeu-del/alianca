@@ -69,29 +69,24 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Aliança" },
-      { name: "description", content: "Modern website for Aliança Campo Grande sports club, featuring institutional and sporting styles." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Aliança" },
-      { property: "og:description", content: "Modern website for Aliança Campo Grande sports club, featuring institutional and sporting styles." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Aliança" },
-      { name: "twitter:description", content: "Modern website for Aliança Campo Grande sports club, featuring institutional and sporting styles." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/87915018-8224-4378-ab54-1103c6aa6ecf/id-preview-badc30ba--e68f7311-7a68-410d-a528-65cfab932319.lovable.app-1778592204166.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/87915018-8224-4378-ab54-1103c6aa6ecf/id-preview-badc30ba--e68f7311-7a68-410d-a528-65cfab932319.lovable.app-1778592204166.png" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
-  }),
+  meta: [
+    { charSet: "utf-8" },
+    { name: "viewport", content: "width=device-width, initial-scale=1" },
+    { title: "Aliança do Campo Grande" },
+    { name: "description", content: "Aliança do Campo Grande Esporte Clube — futebol amador com raça e tradição desde 2004." },
+    { name: "author", content: "Aliança do Campo Grande" },
+    { property: "og:title", content: "Aliança do Campo Grande Esporte Clube" },
+    { property: "og:description", content: "Futebol amador com raça e tradição desde 2004. Conheça o Aliança do Campo Grande." },
+    { property: "og:type", content: "website" },
+    { property: "og:url", content: "https://aliancacgec.gleysonromeu.workers.dev" },
+    { name: "twitter:card", content: "summary" },
+    { name: "twitter:title", content: "Aliança do Campo Grande Esporte Clube" },
+    { name: "twitter:description", content: "Futebol amador com raça e tradição desde 2004." },
+  ],
+  links: [
+    { rel: "stylesheet", href: appCss },
+  ],
+}),
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -100,7 +95,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>

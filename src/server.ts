@@ -50,8 +50,6 @@ function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boole
   );
 }
 
-// h3 swallows in-handler throws into a normal 500 Response with body
-// {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
@@ -66,12 +64,59 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+// ─── Security Headers ──────────────────────────────────────────────────────────
+// Injetados em todas as respostas HTML para proteger contra
+// clickjacking, MIME sniffing, data leakage e outros ataques comuns.
+function addSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+
+  // Impede que o site seja embutido em iframes de outros domínios (clickjacking)
+  headers.set("X-Frame-Options", "DENY");
+
+  // Impede que o browser tente adivinhar o MIME type (MIME sniffing attacks)
+  headers.set("X-Content-Type-Options", "nosniff");
+
+  // Controla quais informações de referência são enviadas
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // Desativa funcionalidades do browser que não são necessárias
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+
+  // Força HTTPS por 1 ano (só ativo em produção com domínio próprio)
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+
+  // Content Security Policy — permite recursos do próprio domínio + Supabase + Cloudflare Turnstile
+ headers.set(
+  "Content-Security-Policy",
+  [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.supabase.co https://supabase.co",
+    "media-src 'self' blob: https://*.supabase.co https://supabase.co",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
+    "frame-src https://challenges.cloudflare.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ")
+);
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return addSecurityHeaders(normalized);
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();

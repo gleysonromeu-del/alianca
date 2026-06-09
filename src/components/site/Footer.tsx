@@ -1,12 +1,13 @@
 import { Facebook, Instagram, Youtube, Mail, MapPin } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import escudo from "@/assets/escudo.png";
 
 const quick = [
-  { label: "O Aliança", href: "#sobre" },
-  { label: "Projetos sociais", href: "#social" },
-  { label: "Esportes", href: "#esportes" },
-  { label: "Notícias", href: "#noticias" },
-  { label: "Contato", href: "#contato" },
+  { label: "O Aliança", href: "/#sobre" },
+  { label: "Projetos sociais", href: "/#social" },
+  { label: "Esportes", href: "/#esportes" },
+  { label: "Notícias", href: "/#noticias" },
+  { label: "Contato", href: "/#contato" },
 ];
 
 export function Footer() {
@@ -75,7 +76,12 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-6 text-xs text-muted-foreground md:flex-row md:px-8">
           <p>© {new Date().getFullYear()} Aliança do Campo Grande. Todos os direitos reservados.</p>
-          <p>Feito com paixão pela torcida.</p>
+          <div className="flex gap-4">
+            <Link to="/privacidade" className="hover:text-accent transition-colors">
+              Política de Privacidade
+            </Link>
+            <p>Feito com paixão pela torcida.</p>
+          </div>
         </div>
       </div>
     </footer>

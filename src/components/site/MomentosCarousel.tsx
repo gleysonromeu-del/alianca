@@ -71,31 +71,33 @@ export function MomentosCarousel() {
                 <CarouselItem key={m.id} className="md:basis-1/2 lg:basis-1/2">
                   <div className="rounded-3xl overflow-hidden glass shadow-[var(--shadow-elegant)] flex flex-col">
 
-                    {/* ── Mídia: sem aspect-ratio fixo, imagem mostra altura natural ── */}
-                    {m.tipo === "foto" && m.midia_url && (
-                      <img
-                        src={m.midia_url}
-                        alt={m.legenda ?? "Momento Aliança"}
-                        className="w-full object-contain max-h-[480px] bg-black/30"
-                        loading="lazy"
-                      />
-                    )}
+                    {/* ── Mídia ── */}
+<div className="w-full h-64 overflow-hidden bg-black/30 flex items-center justify-center">
+  {m.tipo === "foto" && m.midia_url && (
+    <img
+      src={m.midia_url}
+      alt={m.legenda ?? "Momento Aliança"}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  )}
 
-                    {m.tipo === "video" && m.midia_url && (
-                      <video
-                        src={m.midia_url}
-                        controls
-                        playsInline
-                        className="w-full max-h-[480px] bg-black"
-                      />
-                    )}
+  {m.tipo === "video" && m.midia_url && (
+    <video
+      src={m.midia_url}
+      controls
+      playsInline
+      className="w-full h-full object-cover"
+    />
+  )}
 
-                    {m.tipo === "texto" && (
-                      <div className="p-8 text-center min-h-[200px] flex flex-col items-center justify-center bg-black/20">
-                        <Quote className="mx-auto h-10 w-10 text-accent mb-3" />
-                        <p className="text-lg font-medium text-foreground italic">"{m.legenda}"</p>
-                      </div>
-                    )}
+  {m.tipo === "texto" && (
+    <div className="w-full h-full p-8 flex flex-col items-center justify-center bg-black/20">
+      <Quote className="h-10 w-10 text-accent mb-3" />
+      <p className="text-lg font-medium text-foreground italic text-center">"{m.legenda}"</p>
+    </div>
+  )}
+</div>
 
                     {/* ── Rodapé ── */}
                     {m.tipo !== "texto" && m.legenda && (

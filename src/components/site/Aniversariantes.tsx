@@ -52,11 +52,11 @@ export function Aniversariantes() {
           className="mx-auto max-w-2xl text-center"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-            Aniversariantes
-          </p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
-            <span className="text-gradient-gold">{MESES[mesAtual]}</span> é de comemorar
-          </h2>
+  Aniversariantes do Mês
+</p>
+<h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+  <span className="text-gradient-gold">{MESES[mesAtual]}</span>
+</h2>
           <p className="mt-3 text-sm md:text-base text-muted-foreground">
             Parabéns aos jogadores que celebram mais um ano de vida este mês.
           </p>

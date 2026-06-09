@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 //   // Antes do submit, valide: if (!token) { setError("Confirme que você não é um robô"); return; }
 //   // Após erro no submit, chame reset() para forçar novo desafio
 
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string;
+const TURNSTILE_SITE_KEY = "0x4AAAAAADfjBLGVeSt2NbqD";
 
 declare global {
   interface Window {

@@ -50,9 +50,13 @@ function LoginPage() {
     setSubmitting(true);
 
     // Delay artificial de 1s para dificultar timing attacks (tarefa 4.2 antecipada)
-    await new Promise((r) => setTimeout(r, 1000));
+    
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({ 
+  email, 
+  password,
+  options: { captchaToken: token }
+});
     if (authError) {
       setSubmitting(false);
       setError("E-mail ou senha incorretos.");
