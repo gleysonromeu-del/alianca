@@ -10,6 +10,7 @@ import { MomentosUpload } from "@/components/site/MomentosUpload";
 import { toast } from "sonner";
 import AdminCampeonato from "@/pages/admin/AdminCampeonato";
 import { AdminEstatisticas } from "@/pages/admin/AdminEstatisticas";
+import { AdminConfiguracoes } from "@/pages/admin/AdminConfiguracoes";
 
 export const Route = createFileRoute("/jogadores")({
   component: JogadoresPage,
@@ -69,7 +70,7 @@ type Jogador = {
 type Pagamento = {
   id: string;
   jogador_id: string;
-  comprovante_url: string;
+  comprovante_path: string;   // path no bucket privado (ex: "user-id/1234567890.jpg")
   referencia: string | null;
   valor: number | null;
   status: string;
@@ -93,7 +94,7 @@ type Inscricao = {
 };
 
 // Abas do painel admin
-type AdminAba = "inscricoes" | "elenco" | "pagamentos" | "campeonato" | "estatisticas";
+type AdminAba = "inscricoes" | "elenco" | "pagamentos" | "campeonato" | "estatisticas" | "configuracoes";
 
 function JogadoresPage() {
   const { user, loading } = useAuth();
@@ -236,10 +237,10 @@ function JogadoresPage() {
         .from("comprovantes")
         .upload(path, file, { upsert: false });
       if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("comprovantes").getPublicUrl(path);
+      // Bucket privado: salva apenas o path, nunca a URL pública
       const { error: insErr } = await supabase.from("pagamentos").insert({
         jogador_id: user.id,
-        comprovante_url: pub.publicUrl,
+        comprovante_path: path,
         referencia: referencia || null,
         valor: valor ? Number(valor) : null,
       });
@@ -247,8 +248,7 @@ function JogadoresPage() {
       const nome = me?.nome_completo || me?.apelido || user.email;
       const msg = `Olá! Enviei o comprovante de mensalidade.%0AJogador: ${nome}%0A` +
         (referencia ? `Referência: ${referencia}%0A` : "") +
-        (valor ? `Valor: R$ ${valor}%0A` : "") +
-        `Comprovante: ${pub.publicUrl}`;
+        (valor ? `Valor: R$ ${valor}%0A` : "");
       window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${msg}`, "_blank");
       setFeedback("Comprovante enviado! Notificação aberta no WhatsApp.");
       setFile(null);
@@ -260,6 +260,18 @@ function JogadoresPage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  // Gera signed URL válida por 1h e abre o comprovante — nunca expõe URL permanente
+  async function abrirComprovante(path: string) {
+    const { data, error } = await supabase.storage
+      .from("comprovantes")
+      .createSignedUrl(path, 3600); // 3600s = 1h
+    if (error || !data?.signedUrl) {
+      toast.error("Não foi possível abrir o comprovante. Tente novamente.");
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
   }
 
   async function setStatus(id: string, status: string) {
@@ -281,6 +293,7 @@ function JogadoresPage() {
     { id: "pagamentos", label: "Comprovantes" },
     { id: "campeonato", label: "⚽ Campeonato" },
     { id: "estatisticas", label: "📊 Estatísticas" },
+    { id: "configuracoes", label: "⚙️ Configurações" },
   ];
 
   return (
@@ -423,7 +436,7 @@ function JogadoresPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}>{p.status}</span>
-                    <a href={p.comprovante_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">ver</a>
+                    <button onClick={() => abrirComprovante(p.comprovante_path)} className="text-xs text-primary hover:underline">ver</button>
                   </div>
                 </div>
               ))}
@@ -525,7 +538,7 @@ function JogadoresPage() {
                           <p className="text-xs text-muted-foreground">{new Date(p.criado_em).toLocaleString("pt-BR")}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <a href={p.comprovante_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">ver comprovante</a>
+                          <button onClick={() => abrirComprovante(p.comprovante_path)} className="text-xs text-primary hover:underline">ver comprovante</button>
                           <span className={`text-xs rounded-full px-2 py-1 ${p.status === "confirmado" ? "bg-green-500/20 text-green-300" : p.status === "rejeitado" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300"}`}>{p.status}</span>
                           {p.status !== "confirmado" && <Button size="sm" onClick={() => setStatus(p.id, "confirmado")}>Confirmar</Button>}
                           {p.status !== "rejeitado" && <Button size="sm" variant="outline" onClick={() => setStatus(p.id, "rejeitado")}>Rejeitar</Button>}
@@ -546,6 +559,11 @@ function JogadoresPage() {
             {/* ── Aba: Estatísticas ── */}
             {adminAba === "estatisticas" && (
               <AdminEstatisticas />
+            )}
+
+            {/* ── Aba: Configurações ── */}
+            {adminAba === "configuracoes" && (
+              <AdminConfiguracoes />
             )}
           </>
         )}
