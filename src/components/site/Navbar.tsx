@@ -9,8 +9,6 @@ const links = [
   { label: "Home", href: "#home" },
   { label: "O Aliança", href: "#sobre" },
   { label: "Social", href: "#social" },
-  { label: "Esportes", href: "#esportes" },
-  { label: "Notícias", href: "#noticias" },
   { label: "Contato", href: "#contato" },
 ];
 

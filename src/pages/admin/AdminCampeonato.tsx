@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trophy, Calendar, Shield, Trash2, CheckCircle2,
   Beer, AlertTriangle, X, Loader2, BarChart3, Upload, Camera, Edit3,
-  ShoppingBag, MessageSquare,
+  ShoppingBag, MessageSquare, Heart,
 } from "lucide-react";
 import {
   useCampeonatoAtual,
@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AdminStore } from "@/pages/admin/AdminStore";
 import { AdminSugestoes } from "@/pages/admin/AdminSugestoes";
+import { AdminCampanhas } from "@/pages/admin/AdminCampanhas";
 
 // ─── Upload helper ─────────────────────────────────────────────────────────────
 
@@ -206,74 +207,29 @@ function ImageUploadBtn({ label, pasta, onUploaded, currentUrl }: { label: strin
   );
 }
 
-// ─── Nome do Galo editável inline ─────────────────────────────────────────────
-
-function GaloNomeInline({ campId }: { campId: string }) {
-  const { data: nomeGalo } = useConfig(`galo_nome_${campId}`);
-  const salvarConfig = useSalvarConfig();
-  const qc = useQueryClient();
-  const [editando, setEditando] = useState(false);
-  const [valor, setValor] = useState("");
-
-  useEffect(() => {
-    if (nomeGalo !== undefined) setValor(nomeGalo ?? "");
-  }, [nomeGalo]);
-
-  async function salvar() {
-    await salvarConfig.mutateAsync({ chave: `galo_nome_${campId}`, valor });
-    qc.invalidateQueries({ queryKey: ["config", `galo_nome_${campId}`] });
-    setEditando(false);
-    toast.success("Nome do Galo salvo!");
-  }
-
-  if (editando) {
-    return (
-      <div className="flex items-center gap-2 mt-1">
-        <input
-          autoFocus
-          className="rounded-lg border border-amber-500/30 bg-white/5 px-3 py-1.5 text-sm font-bold text-white outline-none focus:border-amber-500/60 w-full max-w-xs"
-          placeholder="Nome do time campeão"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") setEditando(false); }}
-        />
-        <button onClick={salvar} className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/30 transition">
-          {salvarConfig.isPending ? "..." : "Salvar"}
-        </button>
-        <button onClick={() => setEditando(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
-      </div>
-    );
-  }
-
-  return (
-    <button onClick={() => setEditando(true)} className="mt-1 flex items-center gap-2 group text-left">
-      <span className="text-xl font-black text-white">
-        {valor || "Clique para adicionar o nome do campeão"}
-      </span>
-      <Edit3 className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition shrink-0" />
-    </button>
-  );
-}
-
 // ─── Modal Configurações ──────────────────────────────────────────────────────
 
 function ModalConfiguracoes({ campId, onClose }: { campId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: nomeConfig } = useConfig(`campeonato_nome_${campId}`);
   const { data: fotoGaloConfig } = useConfig("foto_galo_atual");
+  const { data: tituloGaloConfig } = useConfig("galo_titulo_atual");
   const salvarConfig = useSalvarConfig();
   const [nome, setNome] = useState("");
   const [fotoGalo, setFotoGalo] = useState<string | null>(null);
+  const [tituloGalo, setTituloGalo] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { if (nomeConfig !== undefined) setNome(nomeConfig ?? ""); }, [nomeConfig]);
   useEffect(() => { if (fotoGaloConfig !== undefined) setFotoGalo(fotoGaloConfig); }, [fotoGaloConfig]);
+  useEffect(() => { if (tituloGaloConfig !== undefined) setTituloGalo(tituloGaloConfig ?? ""); }, [tituloGaloConfig]);
 
   async function handleSalvar() {
     setSalvando(true);
     try {
       await salvarConfig.mutateAsync({ chave: `campeonato_nome_${campId}`, valor: nome });
       if (fotoGalo) await salvarConfig.mutateAsync({ chave: "foto_galo_atual", valor: fotoGalo });
+      await salvarConfig.mutateAsync({ chave: "galo_titulo_atual", valor: tituloGalo });
       qc.invalidateQueries({ queryKey: ["config"] });
       toast.success("Configurações salvas!");
       onClose();
@@ -299,9 +255,19 @@ function ModalConfiguracoes({ campId, onClose }: { campId: string; onClose: () =
           <p className="mt-1 text-xs text-muted-foreground">Aparece no topo da seção pública. Troque a cada mês.</p>
         </div>
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">🐔 Foto do Galo (Campeão Defensor)</label>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">🐔 Foto do Galo (Campeão Atual)</label>
           <p className="mb-3 text-xs text-muted-foreground">Foto do campeão do mês anterior. Troque quando o título mudar de mãos.</p>
           <ImageUploadBtn label="Enviar foto do Galo" pasta="galo" currentUrl={fotoGalo} onUploaded={(url) => setFotoGalo(url)} />
+        </div>
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">🏆 Título do Campeão</label>
+          <input
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-accent/50"
+            placeholder="Ex: PSG Campeão da Champions League Aliança 2026"
+            value={tituloGalo}
+            onChange={(e) => setTituloGalo(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">Aparece abaixo da foto do Galo, com a frase "O Galo a ser batido" logo em seguida. Atualize a cada mês.</p>
         </div>
         <button onClick={handleSalvar} disabled={salvando} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-accent-foreground transition hover:opacity-90 disabled:opacity-50">
           {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -590,10 +556,22 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
   const [golsA, setGolsA] = useState(partida.gols_a);
   const [golsB, setGolsB] = useState(partida.gols_b);
   const [obs, setObs] = useState(partida.observacoes ?? "");
+  const [temPenaltis, setTemPenaltis] = useState(
+    partida.penaltis_a !== null && partida.penaltis_a !== undefined
+  );
+  const [penA, setPenA] = useState(partida.penaltis_a ?? 0);
+  const [penB, setPenB] = useState(partida.penaltis_b ?? 0);
 
   const handleSubmit = async () => {
     try {
-      await finalizarPartida.mutateAsync({ partida_id: partida.id, gols_a: golsA, gols_b: golsB, observacoes: obs || null });
+      await finalizarPartida.mutateAsync({
+        partida_id: partida.id,
+        gols_a: golsA,
+        gols_b: golsB,
+        penaltis_a: temPenaltis ? penA : null,
+        penaltis_b: temPenaltis ? penB : null,
+        observacoes: obs || null,
+      });
       onClose();
     } catch (e) {
       console.error("Erro ao finalizar partida:", e);
@@ -623,6 +601,41 @@ function ModalRegistrarPlacar({ partida, onClose }: { partida: Partida; onClose:
           </div>
         </div>
       </div>
+
+      {/* Pênaltis */}
+      <div className="mt-5 rounded-2xl border border-white/10 p-4">
+        <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-accent"
+            checked={temPenaltis}
+            onChange={(e) => setTemPenaltis(e.target.checked)}
+          />
+          Decidido nos pênaltis?
+        </label>
+        {temPenaltis && (
+          <div className="mt-4 grid grid-cols-3 items-center gap-4">
+            <div className="text-center">
+              <p className="mb-2 text-xs text-muted-foreground">Pênaltis {partida.time_a?.nome}</p>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={() => setPenA(Math.max(0, penA - 1))} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-sm font-bold hover:bg-white/20">-</button>
+                <span className="w-7 text-center text-xl font-black text-amber-400">{penA}</span>
+                <button onClick={() => setPenA(penA + 1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-sm font-bold hover:bg-white/20">+</button>
+              </div>
+            </div>
+            <div className="text-center text-lg font-black text-muted-foreground">×</div>
+            <div className="text-center">
+              <p className="mb-2 text-xs text-muted-foreground">Pênaltis {partida.time_b?.nome}</p>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={() => setPenB(Math.max(0, penB - 1))} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-sm font-bold hover:bg-white/20">-</button>
+                <span className="w-7 text-center text-xl font-black text-amber-400">{penB}</span>
+                <button onClick={() => setPenB(penB + 1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-sm font-bold hover:bg-white/20">+</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mt-5">
         <input className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none" placeholder="Observações (opcional)" value={obs} onChange={(e) => setObs(e.target.value)} />
       </div>
@@ -658,6 +671,7 @@ function TabCampeonato() {
 
   const { data: nomeConfig } = useConfig(camp ? `campeonato_nome_${camp.id}` : "");
   const { data: fotoGalo } = useConfig("foto_galo_atual");
+  const { data: tituloGaloAtual } = useConfig("galo_titulo_atual");
 
   const partidasAgendadas = partidas.filter((p) => p.status === "agendada");
   const partidasFinalizadas = partidas.filter((p) => p.status === "finalizada");
@@ -760,9 +774,14 @@ function TabCampeonato() {
               </button>
             </div>
             <div className="flex flex-1 flex-col justify-center gap-2 p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo — Campeão Defensor</p>
-              <GaloNomeInline campId={camp.id} />
-              <p className="text-sm text-muted-foreground">O atual campeão a ser destronado este mês.<br /><span className="text-xs opacity-60">Clique no nome acima para editar.</span></p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">🐔 O Galo a ser batido</p>
+              <p className="mt-1 text-xl font-black text-white">
+                {tituloGaloAtual || "Clique em Configurações para definir o título do campeão"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Campeão do mês anterior, exibido em destaque na seção pública.<br />
+                <button onClick={() => setModalConfig(true)} className="text-xs text-amber-400 underline opacity-80 hover:opacity-100">Editar foto e título em Configurações</button>
+              </p>
             </div>
           </div>
         </section>
@@ -870,7 +889,7 @@ function TabCampeonato() {
 
 // ─── Página Principal com Abas ────────────────────────────────────────────────
 
-type AdminAba = "campeonato" | "store" | "sugestoes";
+type AdminAba = "campeonato" | "store" | "sugestoes" | "campanhas";
 
 export default function AdminCampeonato() {
   const [aba, setAba] = useState<AdminAba>("campeonato");
@@ -879,6 +898,7 @@ export default function AdminCampeonato() {
     { id: "campeonato", label: "Campeonato", icon: <Trophy className="h-4 w-4" /> },
     { id: "store", label: "Store", icon: <ShoppingBag className="h-4 w-4" /> },
     { id: "sugestoes", label: "Sugestões", icon: <MessageSquare className="h-4 w-4" /> },
+    { id: "campanhas", label: "Campanhas", icon: <Heart className="h-4 w-4" /> },
   ];
 
   return (
@@ -908,6 +928,7 @@ export default function AdminCampeonato() {
       {aba === "campeonato" && <TabCampeonato />}
       {aba === "store" && <AdminStore />}
       {aba === "sugestoes" && <AdminSugestoes />}
+      {aba === "campanhas" && <AdminCampanhas />}
     </div>
   );
 }

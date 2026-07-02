@@ -157,7 +157,7 @@ export function usePartidas(campeonatoId: string | undefined) {
           time_b:times!partidas_time_b_id_fkey(nome, cor)
         `)
         .eq("campeonato_id", campeonatoId!)
-        .order("data", { ascending: false, nullsFirst: false });
+        .order("data", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as Partida[];
     },

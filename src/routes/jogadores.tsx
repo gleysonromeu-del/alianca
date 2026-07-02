@@ -94,7 +94,7 @@ type Inscricao = {
 };
 
 // Abas do painel admin
-type AdminAba = "inscricoes" | "elenco" | "pagamentos" | "campeonato" | "estatisticas" | "configuracoes";
+type AdminAba = "inscricoes" | "elenco" | "aprovacao" | "pagamentos" | "campeonato" | "estatisticas" | "configuracoes";
 
 function JogadoresPage() {
   const { user, loading } = useAuth();
@@ -166,7 +166,16 @@ function JogadoresPage() {
   }
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login" });
+    // Verifica sessão real no servidor (não só na memória)
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error || !data.user) {
+        navigate({ to: "/login", replace: true });
+      }
+    });
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/login", replace: true });
   }, [loading, user, navigate]);
 
   async function refresh() {
@@ -217,6 +226,17 @@ function JogadoresPage() {
 
   async function setInscricaoStatus(id: string, status: string) {
     await supabase.from("inscricoes").update({ status }).eq("id", id);
+    await refresh();
+  }
+
+  async function aprovarJogador(id: string) {
+    await supabase.from("jogadores").update({ ativo: true }).eq("id", id);
+    await refresh();
+  }
+
+  async function rejeitarJogador(id: string) {
+    if (!confirm("Rejeitar este jogador? Ele não poderá acessar o sistema.")) return;
+    await supabase.from("jogadores").update({ ativo: null }).eq("id", id);
     await refresh();
   }
 
@@ -283,6 +303,8 @@ function JogadoresPage() {
   if (!user) return null;
 
   // ── Abas do admin ──────────────────────────────────────────────────────────
+  const pendentesAprovacao = jogadores.filter((j) => j.ativo === false);
+
   const ABAS: { id: AdminAba; label: string; badge?: number }[] = [
     {
       id: "inscricoes",
@@ -290,6 +312,11 @@ function JogadoresPage() {
       badge: inscricoes.filter((i) => i.status === "pendente").length || undefined,
     },
     { id: "elenco", label: "Elenco" },
+    {
+      id: "aprovacao",
+      label: "✅ Aprovações",
+      badge: pendentesAprovacao.length || undefined,
+    },
     { id: "pagamentos", label: "Comprovantes" },
     { id: "campeonato", label: "⚽ Campeonato" },
     { id: "estatisticas", label: "📊 Estatísticas" },
@@ -321,8 +348,21 @@ function JogadoresPage() {
           </div>
         </div>
 
-        {/* ── JOGADOR (não-admin) ── */}
-        {me && !isAdmin && (
+        {/* ── JOGADOR PENDENTE DE APROVAÇÃO ── */}
+        {me && !isAdmin && me.ativo === false && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-10 text-center">
+            <div className="text-5xl mb-4">⏳</div>
+            <h2 className="text-2xl font-black text-foreground">Cadastro em análise</h2>
+            <p className="mt-3 text-muted-foreground text-sm leading-relaxed max-w-md mx-auto">
+              Seu cadastro está aguardando aprovação da diretoria do Aliança.<br /><br />
+              Assim que for aprovado, você terá acesso completo à área do jogador.
+            </p>
+            <Button variant="outline" className="mt-6" onClick={logout}>Sair</Button>
+          </div>
+        )}
+
+        {/* ── JOGADOR APROVADO (não-admin) ── */}
+        {me && !isAdmin && me.ativo !== false && (
           <div className="rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 mb-8">
             <div className="flex flex-col sm:flex-row gap-5 items-start">
               <div className="h-28 w-28 rounded-2xl bg-muted grid place-items-center text-3xl font-bold text-muted-foreground">
@@ -391,11 +431,11 @@ function JogadoresPage() {
           </div>
         )}
 
-        {!isAdmin && (
+        {!isAdmin && me?.ativo !== false && (
           <MomentosUpload userId={user.id} autorNome={me?.apelido || me?.nome_completo || (user.email ?? "Jogador")} />
         )}
 
-        {!isAdmin && (
+        {!isAdmin && me?.ativo !== false && (
           <div className="rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 mb-8">
             <h2 className="text-xl font-bold text-foreground mb-1">Enviar comprovante de mensalidade</h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -424,7 +464,7 @@ function JogadoresPage() {
           </div>
         )}
 
-        {!isAdmin && pagamentos.length > 0 && (
+        {!isAdmin && me?.ativo !== false && pagamentos.length > 0 && (
           <div className="mb-10">
             <h2 className="text-xl font-bold text-foreground mb-3">Meus comprovantes</h2>
             <div className="space-y-2">
@@ -516,11 +556,87 @@ function JogadoresPage() {
             {/* ── Aba: Elenco ── */}
             {adminAba === "elenco" && (
               <>
-                <h2 className="text-xl font-bold text-foreground mb-4">Elenco ({jogadores.length})</h2>
+                <h2 className="text-xl font-bold text-foreground mb-4">Elenco ({jogadores.filter(j => j.ativo === true).length})</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                  {jogadores.map((p) => <JogadorCard key={p.id} p={p} />)}
-                  {jogadores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador cadastrado.</p>}
+                  {jogadores.filter(j => j.ativo === true).map((p) => <JogadorCard key={p.id} p={p} />)}
+                  {jogadores.filter(j => j.ativo === true).length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador aprovado ainda.</p>}
                 </div>
+              </>
+            )}
+
+            {/* ── Aba: Aprovação de Jogadores ── */}
+            {adminAba === "aprovacao" && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-foreground">Aprovação de Jogadores</h2>
+                  {pendentesAprovacao.length > 0 && (
+                    <span className="rounded-full bg-amber-500/20 text-amber-400 px-3 py-1 text-xs font-bold">
+                      {pendentesAprovacao.length} pendente{pendentesAprovacao.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {pendentesAprovacao.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 py-12 text-center text-muted-foreground">
+                    <p className="text-4xl mb-3">✅</p>
+                    <p>Nenhum cadastro pendente de aprovação.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendentesAprovacao.map((j) => (
+                      <div key={j.id} className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="font-bold text-foreground">{j.nome_completo}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {j.apelido && <span>"{j.apelido}" · </span>}
+                            {j.posicao} · {j.telefone}
+                          </p>
+                          {j.email && <p className="text-xs text-muted-foreground">{j.email}</p>}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => aprovarJogador(j.id)}
+                          >
+                            ✅ Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => rejeitarJogador(j.id)}
+                          >
+                            ❌ Rejeitar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Também mostra jogadores rejeitados */}
+                {jogadores.filter(j => j.ativo === null).length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Rejeitados</h3>
+                    <div className="space-y-2">
+                      {jogadores.filter(j => j.ativo === null).map((j) => (
+                        <div key={j.id} className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-sm">{j.nome_completo}</p>
+                            <p className="text-xs text-muted-foreground">{j.email}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => aprovarJogador(j.id)}
+                          >
+                            Aprovar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

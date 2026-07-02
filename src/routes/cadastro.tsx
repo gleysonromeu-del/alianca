@@ -121,12 +121,12 @@ function CadastroPage() {
         posicao: resultado.data.posicao,
         numero_camisa: resultado.data.numero_camisa || null,
         email: resultado.data.email,
-        ativo: true,
+        ativo: false, // pendente de aprovação pelo admin
       }, { onConflict: "id" });
 
       if (upErr) throw upErr;
 
-      navigate({ to: "/jogadores" });
+      navigate({ to: "/login", state: { cadastroPendente: true } });
     } catch (err: any) {
       setError(err.message ?? "Erro ao cadastrar");
       reset();

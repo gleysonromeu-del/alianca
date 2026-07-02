@@ -5,8 +5,6 @@ import escudo from "@/assets/escudo.png";
 const quick = [
   { label: "O Aliança", href: "/#sobre" },
   { label: "Projetos sociais", href: "/#social" },
-  { label: "Esportes", href: "/#esportes" },
-  { label: "Notícias", href: "/#noticias" },
   { label: "Contato", href: "/#contato" },
 ];
 
@@ -67,7 +65,7 @@ export function Footer() {
             </li>
             <li className="flex items-start gap-3">
               <Mail className="mt-0.5 h-4 w-4 text-accent" />
-              contato@aliancacg.com.br
+              aliancacgec2004@gmail.com
             </li>
           </ul>
         </div>

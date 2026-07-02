@@ -114,11 +114,7 @@ function addSecurityHeaders(response: Response): Response {
     "Content-Security-Policy-Report-Only",
     [
       "default-src 'self'",
-      // 'strict-dynamic' permite scripts carregados por scripts confiáveis (sem lista de domínios)
-      // O nonce protege os scripts inline gerados pelo SSR
       `script-src 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com`,
-      // Estilos inline do Tailwind/shadcn precisam do nonce ou de unsafe-inline.
-      // unsafe-inline em style-src é aceitável (não executa código, apenas estilos).
       `style-src 'self' 'unsafe-inline'`,
       "img-src 'self' data: blob: https://*.supabase.co https://supabase.co",
       "media-src 'self' blob: https://*.supabase.co https://supabase.co",
@@ -128,8 +124,6 @@ function addSecurityHeaders(response: Response): Response {
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      // report-uri para monitorar violações em produção (opcional mas recomendado)
-      // "report-uri /api/csp-report",
     ].join("; ")
   );
 

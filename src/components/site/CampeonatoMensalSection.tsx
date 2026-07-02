@@ -63,7 +63,43 @@ const TeamDot = ({ cor, size = 10 }: { cor: string; size?: number }) => (
   />
 );
 
+// Normaliza o campo "observações" para identificar partidas decisivas,
+// independente de acentos, espaços ou maiúsculas/minúsculas.
+function normalizeObs(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .trim()
+    .toUpperCase();
+}
+
+function isFinal(p: { observacoes: string | null }): boolean {
+  return normalizeObs(p.observacoes) === "FINAL";
+}
+
+function isJogoCerveja(p: { observacoes: string | null }): boolean {
+  return normalizeObs(p.observacoes) === "JOGO DA CERVEJA";
+}
+
+function isDecisiva(p: { observacoes: string | null }): boolean {
+  return isFinal(p) || isJogoCerveja(p);
+}
+
+function useIsMobile(breakpoint = 720) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export function CampeonatoMensalSection() {
+  const isMobile = useIsMobile();
   const [campeonato, setCampeonato] = useState<CampeonatoMensal | null>(null);
   const [times, setTimes] = useState<Time[]>([]);
   const [jogadores, setJogadores] = useState<EstatisticaJogador[]>([]);
@@ -73,6 +109,7 @@ export function CampeonatoMensalSection() {
   const [aba, setAba] = useState<"artilharia" | "assistencias" | "partidas" | "cartoes">("artilharia");
   const [nomeCampeonato, setNomeCampeonato] = useState<string | null>(null);
   const [fotoGalo, setFotoGalo] = useState<string | null>(null);
+  const [tituloGalo, setTituloGalo] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCampeonato();
@@ -105,6 +142,13 @@ export function CampeonatoMensalSection() {
         .eq("chave", "foto_galo_atual")
         .maybeSingle();
       if (configGalo?.valor) setFotoGalo(configGalo.valor);
+
+      const { data: configTituloGalo } = await supabase
+        .from("configuracoes")
+        .select("valor")
+        .eq("chave", "galo_titulo_atual")
+        .maybeSingle();
+      if (configTituloGalo?.valor) setTituloGalo(configTituloGalo.valor);
 
       const { data: timesData } = await supabase
         .from("times")
@@ -222,16 +266,64 @@ export function CampeonatoMensalSection() {
     : "";
   const mesCapital = mesLabel.charAt(0).toUpperCase() + mesLabel.slice(1);
 
+  // ── Classificação de rodadas: separa rodadas normais das decisivas ──
+  // Agrupa TODAS as partidas por data (cronológico)
+  const partidasOrdenadasTodas = [...partidas].sort((a, b) => {
+    if (!a.data && !b.data) return 0;
+    if (!a.data) return 1;
+    if (!b.data) return -1;
+    return new Date(a.data).getTime() - new Date(b.data).getTime();
+  });
+  const rodadasAllMap: Record<string, typeof partidas> = {};
+  partidasOrdenadasTodas.forEach((p) => {
+    const key = p.data
+      ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })
+      : "Sem data";
+    if (!rodadasAllMap[key]) rodadasAllMap[key] = [];
+    rodadasAllMap[key].push(p);
+  });
+  const rodadasAllEntries = Object.entries(rodadasAllMap);
+
+  // Para N times em turno único (todos contra todos), são N-1 rodadas regulares.
+  // Qualquer rodada além disso é considerada decisiva (Jogo da Cerveja + Final).
+  const regularRounds = Math.max(1, times.length - 1);
+  const autoDecisiveIndex = rodadasAllEntries.length > regularRounds ? regularRounds : -1;
+
+  // IDs das partidas marcadas manualmente como decisivas (via observações)
+  const idsDecisivosManual = new Set(partidas.filter(isDecisiva).map((p) => p.id));
+
+  // Rodadas exibidas em "Confrontos do Mês": exclui a rodada decisiva automática
+  // e qualquer partida marcada manualmente como decisiva
+  const rodadasMes = rodadasAllEntries
+    .filter((_, idx) => idx !== autoDecisiveIndex)
+    .map(([key, jogos]) => [key, jogos.filter((p) => !idsDecisivosManual.has(p.id))] as [string, typeof partidas])
+    .filter(([, jogos]) => jogos.length > 0);
+
+  // Partidas do card "Confrontos Decisivos": rodada automática + marcadas manualmente
+  type TipoDecisivo = "cerveja" | "final";
+  const decisivosMap = new Map<string, { p: typeof partidas[number]; tipo: TipoDecisivo }>();
+  if (autoDecisiveIndex >= 0) {
+    rodadasAllEntries[autoDecisiveIndex][1].forEach((p, i) => {
+      decisivosMap.set(p.id, { p, tipo: i === 0 ? "cerveja" : "final" });
+    });
+  }
+  partidas.filter(isDecisiva).forEach((p) => {
+    decisivosMap.set(p.id, { p, tipo: isJogoCerveja(p) ? "cerveja" : "final" });
+  });
+  const decisivos = Array.from(decisivosMap.values()).sort((a, b) =>
+    a.tipo === "cerveja" ? -1 : b.tipo === "cerveja" ? 1 : 0
+  );
+
   const S = {
-    section: { background: "linear-gradient(180deg,#08102a 0%,#0b1536 60%,#08102a 100%)", padding: "80px 0", fontFamily: "'Segoe UI',system-ui,sans-serif", position: "relative" as const, overflow: "hidden" } as React.CSSProperties,
-    container: { maxWidth: 1160, margin: "0 auto", padding: "0 24px" },
-    header: { textAlign: "center" as const, marginBottom: 52 },
+    section: { background: "linear-gradient(180deg,#08102a 0%,#0b1536 60%,#08102a 100%)", padding: isMobile ? "48px 0" : "80px 0", fontFamily: "'Segoe UI',system-ui,sans-serif", position: "relative" as const, overflow: "hidden" } as React.CSSProperties,
+    container: { maxWidth: 1160, margin: "0 auto", padding: isMobile ? "0 12px" : "0 24px" },
+    header: { textAlign: "center" as const, marginBottom: isMobile ? 30 : 52 },
     pre: { fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "#60a5fa", marginBottom: 10 },
     h2: { fontSize: "clamp(30px,5vw,50px)", fontWeight: 900, color: "#fff", margin: "0 0 8px", lineHeight: 1.1 },
     hl: { background: "linear-gradient(90deg,#3b82f6,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" },
     sub: { fontSize: 15, color: "rgba(255,255,255,0.4)", margin: 0 },
-    grid: { display: "grid", gridTemplateColumns: "1fr 1.7fr", gap: 18, marginBottom: 18 } as React.CSSProperties,
-    card: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "26px 22px" },
+    grid: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "0.85fr 1.65fr", gap: 18, marginBottom: 18, alignItems: "stretch" } as React.CSSProperties,
+    card: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: isMobile ? "18px 14px" : "26px 22px" },
     cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 },
     cardTitle: { fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 },
     verBtn: { fontSize: 13, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontWeight: 600, padding: 0 },
@@ -249,10 +341,10 @@ export function CampeonatoMensalSection() {
     pos: { fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.3)" },
     tNome: { fontSize: 13, fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 7 },
     pts: { fontSize: 14, fontWeight: 800, color: "#f59e0b" },
-    overlay: { position: "fixed" as const, inset: 0, background: "rgba(4,9,28,0.93)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(5px)" },
-    modal: { background: "#0d1435", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, width: "100%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto" as const, padding: "30px 28px" },
+    overlay: { position: "fixed" as const, inset: 0, background: "rgba(4,9,28,0.93)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? 8 : 20, backdropFilter: "blur(5px)" },
+    modal: { background: "#0d1435", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, width: "100%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto" as const, overflowX: "hidden" as const, padding: isMobile ? "20px 14px" : "30px 28px" },
     mHead: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 },
-    mTitle: { fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 },
+    mTitle: { fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#fff", margin: 0 },
     mSub: { fontSize: 13, color: "rgba(255,255,255,0.4)", margin: "3px 0 0" },
     closeBtn: { background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" },
     tabs: { display: "flex", gap: 7, marginBottom: 22, flexWrap: "wrap" as const },
@@ -291,45 +383,199 @@ export function CampeonatoMensalSection() {
           <>
             {/* Grid: Campeão + Classificação */}
             <div style={S.grid}>
-              {/* O Galo — Campeão Defensor */}
-              <div style={{ ...S.card, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", gap: 16, textAlign: "center" as const, position: "relative" as const, overflow: "hidden" }}>
+              {/* O Galo — Campeão do mês anterior */}
+              <div style={{ ...S.card, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "flex-start", gap: 12, textAlign: "center" as const, position: "relative" as const, overflow: "hidden", padding: isMobile ? "18px 18px 20px" : "22px 22px 24px", height: "100%", maxWidth: isMobile ? 320 : undefined, margin: isMobile ? "0 auto" : undefined, width: "100%" }}>
                 {/* brilho dourado de fundo */}
-                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%,rgba(245,158,11,0.12) 0%,transparent 70%)", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%,rgba(245,158,11,0.16) 0%,transparent 70%)", pointerEvents: "none" }} />
 
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "#f59e0b", display: "flex", alignItems: "center", gap: 6 }}>
-                  <Crown size={12} /> O Galo
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "#f59e0b", display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <Crown size={14} /> O Galo
                 </div>
 
                 {fotoGalo ? (
-                  <div style={{ position: "relative" }}>
+                  <div style={{ position: "relative", width: "100%", maxWidth: isMobile ? 220 : undefined }}>
                     <img
                       src={fotoGalo}
                       alt="O Galo"
-                      style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: "3px solid rgba(245,158,11,0.5)", boxShadow: "0 0 32px rgba(245,158,11,0.25)" }}
+                      style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 14, border: "3px solid rgba(245,158,11,0.5)", boxShadow: "0 0 36px rgba(245,158,11,0.25)", display: "block" }}
                     />
                     {/* coroa dourada */}
-                    <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 22 }}>👑</div>
+                    <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 26 }}>👑</div>
                   </div>
                 ) : (
-                  <div style={{ width: 120, height: 120, borderRadius: "50%", background: "rgba(245,158,11,0.08)", border: "2px dashed rgba(245,158,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>
+                  <div style={{ width: "100%", maxWidth: isMobile ? 220 : undefined, aspectRatio: "4 / 3", borderRadius: 14, background: "rgba(245,158,11,0.08)", border: "2px dashed rgba(245,158,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44 }}>
                     🐔
                   </div>
                 )}
 
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>
-                    {fotoGalo ? "Campeão Defensor" : "Aguardando foto"}
+                <div style={{ marginTop: "auto" }}>
+                  <p style={{ fontSize: isMobile ? 14 : 16, fontWeight: 900, color: "#fff", margin: "0 0 4px", lineHeight: 1.3 }}>
+                    {tituloGalo || (fotoGalo ? "Aguardando título do campeão" : "Aguardando foto e título")}
                   </p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0 }}>
-                    {fotoGalo ? "O Galo a ser destronado" : "Admin deve cadastrar a foto do Galo"}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+                    🐔 O Galo a ser batido
                   </p>
                 </div>
               </div>
 
+              {/* Confrontos do Mês (ao lado do Galo) */}
+              {rodadasMes.length > 0 ? (() => {
+                const rodadas = rodadasMes;
+                const totalFinalizados = rodadas.flatMap(([, jogos]) => jogos).filter((p) => p.status === "finalizada").length;
+                const totalAgendados = rodadas.flatMap(([, jogos]) => jogos).filter((p) => p.status === "agendada").length;
+                const rodadaLabel = ["1ª RODADA", "2ª RODADA", "3ª RODADA", "4ª RODADA", "5ª RODADA", "6ª RODADA", "7ª RODADA"];
+
+
+                return (
+                  <div style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column" as const,
+                  }}>
+                    {/* Header da tabela */}
+                    <div style={{
+                      background: "rgba(59,130,246,0.12)",
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                      padding: "12px 18px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap" as const,
+                      gap: 6,
+                    }}>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        ⚽ Confrontos do Mês
+                      </p>
+                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: 0 }}>
+                        {totalFinalizados} finalizado{totalFinalizados !== 1 ? "s" : ""} · {totalAgendados} a jogar
+                      </p>
+                    </div>
+
+                    {/* Rodadas */}
+                    <div style={{ flex: 1, overflowY: "auto" as const }}>
+                    {rodadas.map(([dataLabel, jogos], ri) => (
+                      <div key={dataLabel}>
+                        {/* Label da rodada */}
+                        <div style={{
+                          padding: "8px 18px",
+                          background: "rgba(255,255,255,0.025)",
+                          borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.05)" : undefined,
+                          borderBottom: "1px solid rgba(255,255,255,0.05)",
+                          textAlign: "center" as const,
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                            {rodadaLabel[ri] ?? `${ri + 1}ª RODADA`}
+                          </span>
+                        </div>
+
+                        {/* Jogos da rodada */}
+                        {jogos.map((p, ji) => {
+                          const aV = p.status === "finalizada" && p.gols_a > p.gols_b;
+                          const bV = p.status === "finalizada" && p.gols_b > p.gols_a;
+                          const finalizada = p.status === "finalizada";
+                          const taA = p.time_a as any;
+                          const taB = p.time_b as any;
+                          const timeA = times.find((t) => t.nome === taA?.nome);
+                          const timeB = times.find((t) => t.nome === taB?.nome);
+                          const dt = p.data
+                            ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+                            : "—";
+                          const horario = ji === 0 ? "13:30" : ji === 1 ? "15:30" : null;
+                          const jogoLabel = ji === 0 ? "1º jogo" : ji === 1 ? "2º jogo" : `${ji + 1}º jogo`;
+
+                          return (
+                            <div key={p.id} style={{
+                              position: "relative" as const,
+                              display: "flex",
+                              flexDirection: isMobile ? "column" as const : "row" as const,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: isMobile ? 6 : 14,
+                              padding: isMobile ? "10px 12px 28px" : "12px 18px",
+                              borderBottom: ji < jogos.length - 1 ? "1px solid rgba(255,255,255,0.03)" : undefined,
+                              background: ji % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)",
+                            }}>
+                              {/* Badge de data/horário no canto */}
+                              <div style={{
+                                position: isMobile ? "absolute" as const : "absolute" as const,
+                                top: isMobile ? undefined : 6,
+                                bottom: isMobile ? 4 : undefined,
+                                right: isMobile ? undefined : 10,
+                                left: isMobile ? "50%" : undefined,
+                                transform: isMobile ? "translateX(-50%)" : undefined,
+                                textAlign: isMobile ? "center" as const : "right" as const,
+                                lineHeight: 1.4,
+                              }}>
+                                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", whiteSpace: "nowrap" }}>{dt}</div>
+                                {horario && (
+                                  <div style={{ fontSize: 9, color: "rgba(245,158,11,0.6)", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                    {jogoLabel} · {horario}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Time A */}
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: isMobile ? "center" : "flex-end", gap: 6, flex: isMobile ? undefined : 1, minWidth: 0, width: isMobile ? "100%" : undefined }}>
+                                <span style={{ fontSize: 12, fontWeight: aV ? 800 : 500, color: aV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>
+                                  {taA?.nome ?? "—"}
+                                </span>
+                                {timeA?.escudo_url
+                                  ? <img src={timeA.escudo_url} alt={taA?.nome} style={{ width: 24, height: 24, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                                  : <div style={{ width: 24, height: 24, borderRadius: 6, background: taA?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: "#fff" }}>
+                                      {(taA?.nome ?? "").slice(0, 2).toUpperCase()}
+                                    </div>
+                                }
+                              </div>
+
+                              {/* Placar */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                <span style={{ fontSize: 18, fontWeight: 900, color: aV ? "#f59e0b" : "rgba(255,255,255,0.7)", minWidth: 16, textAlign: "center" as const }}>
+                                  {finalizada ? p.gols_a : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>-</span>}
+                                </span>
+                                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>×</span>
+                                <span style={{ fontSize: 18, fontWeight: 900, color: bV ? "#f59e0b" : "rgba(255,255,255,0.7)", minWidth: 16, textAlign: "center" as const }}>
+                                  {finalizada ? p.gols_b : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>-</span>}
+                                </span>
+                              </div>
+
+                              {/* Time B */}
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: isMobile ? "center" : "flex-start", gap: 6, flex: isMobile ? undefined : 1, minWidth: 0, width: isMobile ? "100%" : undefined }}>
+                                {timeB?.escudo_url
+                                  ? <img src={timeB.escudo_url} alt={taB?.nome} style={{ width: 24, height: 24, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                                  : <div style={{ width: 24, height: 24, borderRadius: 6, background: taB?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: "#fff" }}>
+                                      {(taB?.nome ?? "").slice(0, 2).toUpperCase()}
+                                    </div>
+                                }
+                                <span style={{ fontSize: 12, fontWeight: bV ? 800 : 500, color: bV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {taB?.nome ?? "—"}
+                                </span>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div style={{ ...S.card, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Nenhum confronto cadastrado ainda.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Classificação (compacta) + Confrontos Decisivos */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 18, marginBottom: 18, alignItems: "stretch" }}>
               {/* Classificação */}
-              <div style={S.card}>
-                <div style={S.cardHead}>
-                  <p style={S.cardTitle}>Classificação</p>
+              <div style={{ ...S.card, padding: isMobile ? "14px 12px" : "18px 18px", height: "100%", display: "flex", flexDirection: "column" as const }}>
+                <div style={{ ...S.cardHead, marginBottom: 10 }}>
+                  <p style={{ ...S.cardTitle, fontSize: 14 }}>Classificação</p>
                   <button style={S.verBtn} onClick={() => { setShowModal(true); setAba("artilharia"); }}>
                     Ver estatísticas <ChevronRight size={13} />
                   </button>
@@ -337,30 +583,33 @@ export function CampeonatoMensalSection() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      <th style={{ ...S.th, textAlign: "left", width: 28 }}>#</th>
-                      <th style={{ ...S.th, textAlign: "left" }}>Time</th>
-                      <th style={S.th}>V</th><th style={S.th}>E</th><th style={S.th}>D</th>
-                      <th style={S.th}>SG</th><th style={S.th}>P</th>
+                      <th style={{ ...S.th, textAlign: "left", width: 24, padding: "0 4px 8px" }}>#</th>
+                      <th style={{ ...S.th, textAlign: "left", padding: "0 4px 8px" }}>Time</th>
+                      <th style={{ ...S.th, padding: "0 4px 8px" }}>V</th>
+                      <th style={{ ...S.th, padding: "0 4px 8px" }}>E</th>
+                      <th style={{ ...S.th, padding: "0 4px 8px" }}>D</th>
+                      <th style={{ ...S.th, padding: "0 4px 8px" }}>SG</th>
+                      <th style={{ ...S.th, padding: "0 4px 8px" }}>P</th>
                     </tr>
                   </thead>
                   <tbody>
                     {times.map((t, i) => (
                       <tr key={t.id}>
-                        <td style={{ ...S.td, textAlign: "left" }}><span style={S.pos}>{i + 1}</span></td>
-                        <td style={{ ...S.td, textAlign: "left" }}>
-                          <span style={S.tNome}>
+                        <td style={{ ...S.td, textAlign: "left", padding: "8px 4px", fontSize: 12 }}><span style={S.pos}>{i + 1}</span></td>
+                        <td style={{ ...S.td, textAlign: "left", padding: "8px 4px", fontSize: 12 }}>
+                          <span style={{ ...S.tNome, fontSize: 12, gap: 5 }}>
                             {t.escudo_url
-                              ? <img src={t.escudo_url} alt={t.nome} style={{ width: 20, height: 20, borderRadius: 4, objectFit: "cover", flexShrink: 0 }} />
+                              ? <img src={t.escudo_url} alt={t.nome} style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0 }} />
                               : <TeamDot cor={t.cor} />
                             }
-                            {t.nome}
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.nome}</span>
                           </span>
                         </td>
-                        <td style={S.td}>{t.vitorias}</td>
-                        <td style={S.td}>{t.empates}</td>
-                        <td style={S.td}>{t.derrotas}</td>
-                        <td style={S.td}>{t.gols_pro - t.gols_contra > 0 ? "+" : ""}{t.gols_pro - t.gols_contra}</td>
-                        <td style={S.td}><span style={S.pts}>{t.pontos}</span></td>
+                        <td style={{ ...S.td, padding: "8px 4px", fontSize: 12 }}>{t.vitorias}</td>
+                        <td style={{ ...S.td, padding: "8px 4px", fontSize: 12 }}>{t.empates}</td>
+                        <td style={{ ...S.td, padding: "8px 4px", fontSize: 12 }}>{t.derrotas}</td>
+                        <td style={{ ...S.td, padding: "8px 4px", fontSize: 12 }}>{t.gols_pro - t.gols_contra > 0 ? "+" : ""}{t.gols_pro - t.gols_contra}</td>
+                        <td style={{ ...S.td, padding: "8px 4px" }}><span style={{ ...S.pts, fontSize: 13 }}>{t.pontos}</span></td>
                       </tr>
                     ))}
                     {times.length === 0 && (
@@ -369,151 +618,98 @@ export function CampeonatoMensalSection() {
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            {/* ── Confrontos do Mês ── */}
-            {partidas.length > 0 && (() => {
-              // Agrupa partidas por rodada (data)
-              const rodadasMap: Record<string, typeof partidas> = {};
-              [...partidas].reverse().forEach((p) => {
-                const key = p.data
-                  ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })
-                  : "Sem data";
-                if (!rodadasMap[key]) rodadasMap[key] = [];
-                rodadasMap[key].push(p);
-              });
-              const rodadas = Object.entries(rodadasMap);
-              const rodadaLabel = ["1ª RODADA", "2ª RODADA", "3ª RODADA", "4ª RODADA", "SEMIFINAL", "FINAL", "JOGO DA CERVEJA"];
+              {/* Confrontos Decisivos: Jogo da Cerveja & Final */}
+              {(() => {
+                const renderConfronto = ({ p, tipo }: { p: typeof partidas[number]; tipo: "cerveja" | "final" }) => {
+                  const aV = p.status === "finalizada" && p.gols_a > p.gols_b;
+                  const bV = p.status === "finalizada" && p.gols_b > p.gols_a;
+                  const finalizada = p.status === "finalizada";
+                  const taA = p.time_a as any;
+                  const taB = p.time_b as any;
+                  const timeA = times.find((t) => t.nome === taA?.nome);
+                  const timeB = times.find((t) => t.nome === taB?.nome);
+                  const temPenaltis = p.penaltis_a !== null && p.penaltis_a !== undefined;
+                  const penA_V = temPenaltis && (p.penaltis_a! > (p.penaltis_b ?? 0));
+                  const penB_V = temPenaltis && (p.penaltis_b! > (p.penaltis_a ?? 0));
 
-              return (
-                <div style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  marginTop: 18,
-                }}>
-                  {/* Header da tabela */}
-                  <div style={{
-                    background: "rgba(59,130,246,0.12)",
-                    borderBottom: "1px solid rgba(255,255,255,0.08)",
-                    padding: "14px 20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}>
-                    <p style={{ fontSize: 13, fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      ⚽ Confrontos do Mês
-                    </p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: 0 }}>
-                      {partidas.filter(p => p.status === "finalizada").length} finalizado{partidas.filter(p => p.status === "finalizada").length !== 1 ? "s" : ""} · {partidas.filter(p => p.status === "agendada").length} a jogar
-                    </p>
-                  </div>
+                  return (
+                    <div key={p.id} style={{ padding: isMobile ? "12px 0" : "14px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.14em", margin: "0 0 10px", textAlign: "center" as const }}>
+                        {tipo === "cerveja" ? "🍺 Jogo da Cerveja" : "🏆 Final"}
+                      </p>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 8 : 14 }}>
+                        {/* Time A */}
+                        <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6, width: isMobile ? 64 : 80, flexShrink: 0 }}>
+                          {timeA?.escudo_url
+                            ? <img src={timeA.escudo_url} alt={taA?.nome} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: 8, objectFit: "cover" }} />
+                            : <div style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: 8, background: taA?.cor || "#444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}>
+                                {(taA?.nome ?? "").slice(0, 2).toUpperCase()}
+                              </div>
+                          }
+                          <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: aV ? 800 : 500, color: aV ? "#fff" : "rgba(255,255,255,0.55)", textAlign: "center" as const, lineHeight: 1.2, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+                            {taA?.nome ?? "—"}
+                          </span>
+                        </div>
 
-                  {/* Cabeçalho colunas */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 44px 28px 44px 1fr 90px",
-                    gap: 0,
-                    padding: "8px 20px",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
-                  }}>
-                    {["TIME A", "", "", "", "TIME B", "DATA"].map((h, i) => (
-                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em", textAlign: i === 0 ? "left" : i === 4 ? "right" : "center" as any }}>
-                        {h}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Rodadas */}
-                  {rodadas.map(([dataLabel, jogos], ri) => (
-                    <div key={dataLabel}>
-                      {/* Label da rodada */}
-                      <div style={{
-                        padding: "7px 20px",
-                        background: "rgba(255,255,255,0.025)",
-                        borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.05)" : undefined,
-                        borderBottom: "1px solid rgba(255,255,255,0.05)",
-                      }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.12em" }}>
-                          {rodadaLabel[ri] ?? `${ri + 1}ª RODADA`}
-                        </span>
-                      </div>
-
-                      {/* Jogos da rodada */}
-                      {jogos.map((p, ji) => {
-                        const aV = p.status === "finalizada" && p.gols_a > p.gols_b;
-                        const bV = p.status === "finalizada" && p.gols_b > p.gols_a;
-                        const finalizada = p.status === "finalizada";
-                        const taA = p.time_a as any;
-                        const taB = p.time_b as any;
-                        const timeA = times.find((t) => t.nome === taA?.nome);
-                        const timeB = times.find((t) => t.nome === taB?.nome);
-                        const dt = p.data
-                          ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })
-                          : "—";
-
-                        return (
-                          <div key={p.id} style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 44px 28px 44px 1fr 90px",
-                            alignItems: "center",
-                            gap: 0,
-                            padding: "10px 20px",
-                            borderBottom: ji < jogos.length - 1 ? "1px solid rgba(255,255,255,0.03)" : undefined,
-                            background: ji % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)",
-                          }}>
-                            {/* Time A */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {timeA?.escudo_url
-                                ? <img src={timeA.escudo_url} alt={taA?.nome} style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
-                                : <div style={{ width: 28, height: 28, borderRadius: 6, background: taA?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>
-                                    {(taA?.nome ?? "").slice(0, 2).toUpperCase()}
-                                  </div>
-                              }
-                              <span style={{ fontSize: 12, fontWeight: aV ? 800 : 500, color: aV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {taA?.nome ?? "—"}
-                              </span>
-                            </div>
-
-                            {/* Gols A */}
-                            <div style={{ textAlign: "center", fontSize: 20, fontWeight: 900, color: aV ? "#f59e0b" : "rgba(255,255,255,0.7)" }}>
-                              {finalizada ? p.gols_a : <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>-</span>}
-                            </div>
-
-                            {/* X */}
-                            <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>×</div>
-
-                            {/* Gols B */}
-                            <div style={{ textAlign: "center", fontSize: 20, fontWeight: 900, color: bV ? "#f59e0b" : "rgba(255,255,255,0.7)" }}>
-                              {finalizada ? p.gols_b : <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>-</span>}
-                            </div>
-
-                            {/* Time B */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                              <span style={{ fontSize: 12, fontWeight: bV ? 800 : 500, color: bV ? "#fff" : "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>
-                                {taB?.nome ?? "—"}
-                              </span>
-                              {timeB?.escudo_url
-                                ? <img src={timeB.escudo_url} alt={taB?.nome} style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
-                                : <div style={{ width: 28, height: 28, borderRadius: 6, background: taB?.cor || "#444", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>
-                                    {(taB?.nome ?? "").slice(0, 2).toUpperCase()}
-                                  </div>
-                              }
-                            </div>
-
-                            {/* Data */}
-                            <div style={{ textAlign: "right", fontSize: 11, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
-                              {dt}
-                            </div>
+                        {/* Placar */}
+                        <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 5 : 8 }}>
+                            <span style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, color: aV ? "#f59e0b" : "rgba(255,255,255,0.75)" }}>
+                              {finalizada ? p.gols_a : "-"}
+                            </span>
+                            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>×</span>
+                            <span style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, color: bV ? "#f59e0b" : "rgba(255,255,255,0.75)" }}>
+                              {finalizada ? p.gols_b : "-"}
+                            </span>
                           </div>
-                        );
-                      })}
+                          {temPenaltis && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "rgba(255,255,255,0.4)" }}>
+                              <span style={{ fontWeight: 800, color: penA_V ? "#f59e0b" : "rgba(255,255,255,0.45)" }}>{p.penaltis_a}</span>
+                              <span>pên.</span>
+                              <span style={{ fontWeight: 800, color: penB_V ? "#f59e0b" : "rgba(255,255,255,0.45)" }}>{p.penaltis_b}</span>
+                            </div>
+                          )}
+                          {p.data && (
+                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", whiteSpace: "nowrap" as const }}>
+                              {new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Time B */}
+                        <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6, width: isMobile ? 64 : 80, flexShrink: 0 }}>
+                          {timeB?.escudo_url
+                            ? <img src={timeB.escudo_url} alt={taB?.nome} style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: 8, objectFit: "cover" }} />
+                            : <div style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: 8, background: taB?.cor || "#444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}>
+                                {(taB?.nome ?? "").slice(0, 2).toUpperCase()}
+                              </div>
+                          }
+                          <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: bV ? 800 : 500, color: bV ? "#fff" : "rgba(255,255,255,0.55)", textAlign: "center" as const, lineHeight: 1.2, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+                            {taB?.nome ?? "—"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              );
-            })()}
+                  );
+                };
+
+                return (
+                  <div style={{ ...S.card, padding: isMobile ? "16px 12px" : "18px 18px", height: "100%", display: "flex", flexDirection: "column" as const }}>
+                    <p style={{ ...S.cardTitle, fontSize: 14, marginBottom: 4 }}>Confrontos Decisivos</p>
+                    {decisivos.length > 0 ? (
+                      <div>{decisivos.map(renderConfronto)}</div>
+                    ) : (
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 12, textAlign: "center" as const }}>
+                          O Jogo da Cerveja e a Final<br />ainda serão definidos.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
           </>
         )}
@@ -539,7 +735,8 @@ export function CampeonatoMensalSection() {
 
             {/* Artilharia */}
             {aba === "artilharia" && (
-              <table style={S.etbl}>
+              <div style={{ overflowX: "auto" as const }}>
+              <table style={{ ...S.etbl, minWidth: isMobile ? 520 : undefined }}>
                 <thead><tr>
                   <th style={S.eth()}>#</th>
                   <th style={S.eth(true)}>Jogador</th>
@@ -564,11 +761,13 @@ export function CampeonatoMensalSection() {
                   )}
                 </tbody>
               </table>
+              </div>
             )}
 
             {/* Assistências */}
             {aba === "assistencias" && (
-              <table style={S.etbl}>
+              <div style={{ overflowX: "auto" as const }}>
+              <table style={{ ...S.etbl, minWidth: isMobile ? 520 : undefined }}>
                 <thead><tr>
                   <th style={S.eth()}>#</th>
                   <th style={S.eth(true)}>Jogador</th>
@@ -593,6 +792,7 @@ export function CampeonatoMensalSection() {
                   )}
                 </tbody>
               </table>
+              </div>
             )}
 
             {/* Partidas */}
@@ -622,7 +822,8 @@ export function CampeonatoMensalSection() {
 
             {/* Cartões */}
             {aba === "cartoes" && (
-              <table style={S.etbl}>
+              <div style={{ overflowX: "auto" as const }}>
+              <table style={{ ...S.etbl, minWidth: isMobile ? 460 : undefined }}>
                 <thead><tr>
                   <th style={S.eth()}>#</th>
                   <th style={S.eth(true)}>Jogador</th>
@@ -645,6 +846,7 @@ export function CampeonatoMensalSection() {
                   )}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
