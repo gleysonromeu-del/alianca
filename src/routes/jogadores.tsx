@@ -94,7 +94,18 @@ type Inscricao = {
 };
 
 // Abas do painel admin
-type AdminAba = "inscricoes" | "elenco" | "aprovacao" | "pagamentos" | "campeonato" | "estatisticas" | "configuracoes";
+type AdminAba = "inscricoes" | "elenco" | "aprovacao" | "pagamentos" | "momentos" | "campeonato" | "estatisticas" | "configuracoes";
+
+type MomentoAdmin = {
+  id: string;
+  tipo: "foto" | "video" | "texto";
+  midia_url: string | null;
+  legenda: string | null;
+  autor_nome: string | null;
+  autor_id: string;
+  aprovado: boolean | null;
+  criado_em: string;
+};
 
 function JogadoresPage() {
   const { user, loading } = useAuth();
@@ -104,6 +115,7 @@ function JogadoresPage() {
   const [jogadores, setJogadores] = useState<Jogador[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
+  const [momentos, setMomentos] = useState<MomentoAdmin[]>([]);
   const [adminAba, setAdminAba] = useState<AdminAba>("inscricoes");
 
   // upload form
@@ -197,6 +209,16 @@ function JogadoresPage() {
         .select("*")
         .order("criado_em", { ascending: false });
       setInscricoes((ins as Inscricao[]) ?? []);
+
+      // Admin enxerga TODOS os momentos (aprovados, pendentes e rejeitados),
+      // diferente de MomentosCarousel que só busca aprovado = true.
+      const { data: moms, error: momsErr } = await supabase
+        .from("momentos")
+        .select("id, tipo, midia_url, legenda, autor_nome, autor_id, aprovado, criado_em")
+        .order("criado_em", { ascending: false })
+        .limit(100);
+      if (momsErr) console.error("Erro ao buscar momentos:", momsErr);
+      setMomentos((moms as MomentoAdmin[]) ?? []);
     }
   }
 
@@ -299,6 +321,27 @@ function JogadoresPage() {
     await refresh();
   }
 
+  async function aprovarMomento(id: string) {
+    const { error } = await supabase.from("momentos").update({ aprovado: true }).eq("id", id);
+    if (error) { toast.error(`Erro ao aprovar: ${error.message}`); return; }
+    await refresh();
+  }
+
+  // Tira do carrossel público um momento já aprovado (não existe "rejeitado"
+  // no schema; aprovado=false representa tanto "pendente" quanto "despublicado")
+  async function despublicarMomento(id: string) {
+    const { error } = await supabase.from("momentos").update({ aprovado: false }).eq("id", id);
+    if (error) { toast.error(`Erro ao despublicar: ${error.message}`); return; }
+    await refresh();
+  }
+
+  async function excluirMomento(id: string) {
+    if (!confirm("Excluir este momento definitivamente?")) return;
+    const { error } = await supabase.from("momentos").delete().eq("id", id);
+    if (error) { toast.error(`Erro ao excluir: ${error.message}`); return; }
+    await refresh();
+  }
+
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando...</div>;
   if (!user) return null;
 
@@ -318,6 +361,11 @@ function JogadoresPage() {
       badge: pendentesAprovacao.length || undefined,
     },
     { id: "pagamentos", label: "Comprovantes" },
+    {
+      id: "momentos",
+      label: "🎬 Momentos",
+      badge: momentos.filter((m) => m.aprovado === false).length || undefined,
+    },
     { id: "campeonato", label: "⚽ Campeonato" },
     { id: "estatisticas", label: "📊 Estatísticas" },
     { id: "configuracoes", label: "⚙️ Configurações" },
@@ -663,6 +711,60 @@ function JogadoresPage() {
                     );
                   })}
                   {pagamentos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum comprovante enviado ainda.</p>}
+                </div>
+              </>
+            )}
+
+            {/* ── Aba: Momentos ── */}
+            {adminAba === "momentos" && (
+              <>
+                <h2 className="text-xl font-bold text-foreground mb-4">
+                  Momentos enviados ({momentos.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+                  {momentos.map((m) => (
+                    <div key={m.id} className="rounded-2xl border border-white/10 bg-card/60 overflow-hidden flex flex-col">
+                      {/* Preview inline */}
+                      <div className="w-full h-56 bg-black/30 flex items-center justify-center overflow-hidden">
+                        {m.tipo === "foto" && m.midia_url && (
+                          <img src={m.midia_url} alt={m.legenda ?? "Momento"} className="w-full h-full object-cover" loading="lazy" />
+                        )}
+                        {m.tipo === "video" && m.midia_url && (
+                          <video src={m.midia_url} controls playsInline className="w-full h-full object-cover" />
+                        )}
+                        {m.tipo === "texto" && (
+                          <div className="w-full h-full p-6 flex items-center justify-center text-center">
+                            <p className="text-sm italic text-foreground">"{m.legenda}"</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 flex flex-col gap-2">
+                        {m.tipo !== "texto" && m.legenda && (
+                          <p className="text-sm text-foreground">{m.legenda}</p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{m.autor_nome ?? "Jogador"}</span>
+                          <span>{new Date(m.criado_em).toLocaleString("pt-BR")}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs rounded-full px-2 py-1 ${m.aprovado ? "bg-green-500/20 text-green-300" : "bg-yellow-500/20 text-yellow-300"}`}>
+                            {m.aprovado ? "aprovado" : "pendente"}
+                          </span>
+                          {!m.aprovado && (
+                            <Button size="sm" onClick={() => aprovarMomento(m.id)}>✅ Aprovar</Button>
+                          )}
+                          {m.aprovado && (
+                            <Button size="sm" variant="outline" onClick={() => despublicarMomento(m.id)}>Despublicar</Button>
+                          )}
+                          <Button size="sm" variant="destructive" onClick={() => excluirMomento(m.id)}>🗑️ Excluir</Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {momentos.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Nenhum momento enviado ainda.</p>
+                  )}
                 </div>
               </>
             )}
