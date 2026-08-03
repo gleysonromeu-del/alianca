@@ -53,11 +53,34 @@ async function getVideoDuration(file: File): Promise<number> {
     const url = URL.createObjectURL(file);
     const v = document.createElement("video");
     v.preload = "metadata";
-    v.onloadedmetadata = () => {
+    v.muted = true;
+    v.playsInline = true;
+    // Alguns navegadores (Safari/iOS) só disparam os eventos de forma
+    // confiável quando o elemento está anexado ao DOM.
+    v.style.position = "fixed";
+    v.style.left = "-9999px";
+    document.body.appendChild(v);
+
+    const cleanup = () => {
       URL.revokeObjectURL(url);
-      resolve(v.duration);
+      v.remove();
     };
-    v.onerror = () => reject(new Error("Não foi possível ler o vídeo"));
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Tempo esgotado ao ler o vídeo"));
+    }, 8000);
+
+    v.onloadedmetadata = () => {
+      clearTimeout(timeout);
+      const dur = v.duration;
+      cleanup();
+      resolve(dur);
+    };
+    v.onerror = () => {
+      clearTimeout(timeout);
+      cleanup();
+      reject(new Error("Não foi possível ler o vídeo"));
+    };
     v.src = url;
   });
 }
@@ -125,11 +148,22 @@ export function MomentosUpload({ userId, autorNome }: Props) {
 
         // ── Validação de duração (vídeo) ────────────────────────────────────
         if (tipo === "video") {
-          const dur = await getVideoDuration(file);
-          if (dur > 20.5) throw new Error("O vídeo precisa ter no máximo 20 segundos");
+          let dur: number;
+          try {
+            dur = await getVideoDuration(file);
+          } catch {
+            throw new Error("Não foi possível ler o vídeo. Tente outro arquivo ou formato MP4.");
+          }
+          if (Number.isFinite(dur) && dur > 20.5) {
+            throw new Error("O vídeo precisa ter no máximo 20 segundos");
+          }
         }
 
         // ── Extensão segura baseada no magic byte, não no nome do arquivo ───
+        // (Array.prototype.find não suporta callbacks assíncronos: o find antigo
+        // sempre "casava" com o primeiro item do array, pois uma Promise é sempre
+        // truthy. Isso fazia todo arquivo ser tratado como image/jpeg, quebrando
+        // o content-type e a extensão de vídeos e de fotos que não fossem JPEG.)
         const extMap: Record<string, string> = {
           "image/jpeg": "jpg",
           "image/png":  "png",
@@ -138,10 +172,13 @@ export function MomentosUpload({ userId, autorNome }: Props) {
           "video/mp4":  "mp4",
           "video/quicktime": "mp4",
         };
-        // Re-detecta o mime pelo magic para gerar a extensão correta
-        const detectedMime = [...ALLOWED_IMAGE_SIGNATURES, ...ALLOWED_VIDEO_SIGNATURES]
-          .find(async (sig) => await validateMagicBytes(file, [sig]))?.mime
-          ?? (tipo === "foto" ? "image/jpeg" : "video/mp4");
+        let detectedMime: string = tipo === "foto" ? "image/jpeg" : "video/mp4";
+        for (const sig of [...ALLOWED_IMAGE_SIGNATURES, ...ALLOWED_VIDEO_SIGNATURES]) {
+          if (await validateMagicBytes(file, [sig])) {
+            detectedMime = sig.mime;
+            break;
+          }
+        }
         const ext = extMap[detectedMime] ?? (tipo === "foto" ? "jpg" : "mp4");
 
         const path = `${userId}/${Date.now()}.${ext}`;
@@ -151,7 +188,12 @@ export function MomentosUpload({ userId, autorNome }: Props) {
             upsert: false,
             contentType: detectedMime,
           });
-        if (upErr) throw upErr;
+        if (upErr) {
+          console.error("Erro no upload para o bucket 'momentos':", upErr);
+          throw new Error(
+            `Falha ao enviar arquivo: ${upErr.message ?? "erro desconhecido no storage"}`
+          );
+        }
         midia_url = supabase.storage.from("momentos").getPublicUrl(path).data.publicUrl;
 
       } else if (!legenda.trim()) {
