@@ -22,13 +22,15 @@ interface Pedido {
   status: string;
   created_at: string;
   forma_pagamento: string | null;
+  parcelas: number | null;
   comprador_nome: string | null;
   comprador_telefone: string | null;
 }
 
 const FORMAS_PAGAMENTO_LABEL: Record<string, string> = {
-  mensalidade_4x: "4x na mensalidade",
-  cartao_10x: "Até 10x no cartão (com juros da maquininha)",
+  pix: "À vista no Pix",
+  mensalidade_4x: "4x sem juros na mensalidade",
+  cartao: "Cartão",
 };
 
 const CATEGORIAS = ["Camisa", "Uniforme", "Agasalho", "Bolsa", "Acessório", "Comemorativo", "Outro"];
@@ -308,6 +310,9 @@ export function AdminStore() {
                     <span className="text-muted-foreground">Pagamento: </span>
                     <span className="font-semibold text-accent">
                       {FORMAS_PAGAMENTO_LABEL[p.forma_pagamento] ?? p.forma_pagamento}
+                      {p.forma_pagamento === "cartao" && p.parcelas
+                        ? ` em ${p.parcelas}x${p.parcelas > 1 ? " com juros da maquininha" : " (à vista no cartão)"}`
+                        : ""}
                     </span>
                   </p>
                 )}

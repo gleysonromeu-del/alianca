@@ -22,8 +22,9 @@ interface ItemCarrinho {
 
 const TAMANHOS = ["PP", "P", "M", "G", "GG", "XG"];
 const FORMAS_PAGAMENTO = [
-  { value: "mensalidade_4x", label: "4x na mensalidade" },
-  { value: "cartao_10x", label: "Até 10x no cartão (com juros da maquininha)" },
+  { value: "pix", label: "À vista no Pix" },
+  { value: "mensalidade_4x", label: "4x sem juros na mensalidade" },
+  { value: "cartao", label: "Cartão (1x a 10x, com juros da maquininha)" },
 ];
 
 export function AliancaStore() {
@@ -39,6 +40,7 @@ export function AliancaStore() {
   const [modalProduto, setModalProduto] = useState<Produto | null>(null);
   const [tamanhoSel, setTamanhoSel] = useState("M");
   const [formaPagamento, setFormaPagamento] = useState("");
+  const [parcelas, setParcelas] = useState(1);
   const [compradorNome, setCompradorNome] = useState<string | null>(null);
   const [compradorTelefone, setCompradorTelefone] = useState<string | null>(null);
 
@@ -123,6 +125,7 @@ export function AliancaStore() {
         total: totalPreco,
         status: "pendente",
         forma_pagamento: formaPagamento,
+        parcelas: formaPagamento === "cartao" ? parcelas : null,
         comprador_nome: compradorNome,
         comprador_telefone: compradorTelefone,
       });
@@ -131,6 +134,7 @@ export function AliancaStore() {
       setCarrinho([]);
       setObs("");
       setFormaPagamento("");
+      setParcelas(1);
     } catch (e) {
       console.error(e);
     } finally {
@@ -398,6 +402,24 @@ export function AliancaStore() {
                           </button>
                         ))}
                       </div>
+                      {formaPagamento === "cartao" && (
+                        <div className="mt-3 rounded-2xl border border-accent/20 bg-accent/5 p-3">
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Em quantas vezes?
+                          </label>
+                          <select
+                            value={parcelas}
+                            onChange={(e) => setParcelas(Number(e.target.value))}
+                            className="w-full rounded-xl border border-white/10 bg-[#0d1435] px-3 py-2 text-sm outline-none focus:border-accent/50"
+                          >
+                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}x {n === 1 ? "(à vista no cartão)" : "com juros da maquininha"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     {!user ? (
                       <Link
