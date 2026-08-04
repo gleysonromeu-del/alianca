@@ -21,6 +21,10 @@ interface ItemCarrinho {
 }
 
 const TAMANHOS = ["PP", "P", "M", "G", "GG", "XG"];
+const FORMAS_PAGAMENTO = [
+  { value: "mensalidade_4x", label: "4x na mensalidade" },
+  { value: "cartao_10x", label: "Até 10x no cartão (com juros da maquininha)" },
+];
 
 export function AliancaStore() {
   const { user } = useAuth();
@@ -34,10 +38,28 @@ export function AliancaStore() {
   const [categoriaAtiva, setCategoriaAtiva] = useState("todos");
   const [modalProduto, setModalProduto] = useState<Produto | null>(null);
   const [tamanhoSel, setTamanhoSel] = useState("M");
+  const [formaPagamento, setFormaPagamento] = useState("");
+  const [compradorNome, setCompradorNome] = useState<string | null>(null);
+  const [compradorTelefone, setCompradorTelefone] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProdutos();
   }, []);
+
+  // Identificação de quem está comprando: puxa do cadastro do jogador logado
+  // (jogadores.id === auth.uid()), para o admin saber quem fez o pedido.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("jogadores")
+      .select("nome_completo, apelido, telefone")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setCompradorNome(data?.nome_completo ?? data?.apelido ?? null);
+        setCompradorTelefone(data?.telefone ?? null);
+      });
+  }, [user]);
 
   async function fetchProdutos() {
     setLoading(true);
@@ -84,6 +106,7 @@ export function AliancaStore() {
 
   async function enviarPedido() {
     if (!user || carrinho.length === 0) return;
+    if (!formaPagamento) return;
     setEnviando(true);
     try {
       const itens = carrinho.map((i) => ({
@@ -99,11 +122,15 @@ export function AliancaStore() {
         observacoes: obs.trim() || null,
         total: totalPreco,
         status: "pendente",
+        forma_pagamento: formaPagamento,
+        comprador_nome: compradorNome,
+        comprador_telefone: compradorTelefone,
       });
       if (error) throw error;
       setPedidoEnviado(true);
       setCarrinho([]);
       setObs("");
+      setFormaPagamento("");
     } catch (e) {
       console.error(e);
     } finally {
@@ -333,6 +360,17 @@ export function AliancaStore() {
                         <span className="text-accent">R$ {totalPreco.toFixed(2)}</span>
                       </div>
                     )}
+                    {user && (
+                      <div className="mb-4 rounded-2xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">Pedido em nome de: </span>
+                        <span className="font-semibold">{compradorNome ?? "não identificado"}</span>
+                        {!compradorNome && (
+                          <p className="mt-1 text-xs text-amber-400">
+                            Complete seu cadastro de jogador para a diretoria te identificar corretamente.
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <textarea
                       value={obs}
                       onChange={(e) => setObs(e.target.value)}
@@ -340,6 +378,27 @@ export function AliancaStore() {
                       rows={3}
                       className="mb-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-accent/50 resize-none"
                     />
+                    <div className="mb-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Forma de pagamento *
+                      </p>
+                      <div className="space-y-2">
+                        {FORMAS_PAGAMENTO.map((f) => (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() => setFormaPagamento(f.value)}
+                            className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm font-semibold transition ${
+                              formaPagamento === f.value
+                                ? "border-accent bg-accent/15 text-accent"
+                                : "border-white/10 text-muted-foreground hover:bg-white/5"
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     {!user ? (
                       <Link
                         to="/login"
@@ -350,11 +409,11 @@ export function AliancaStore() {
                     ) : (
                       <button
                         onClick={enviarPedido}
-                        disabled={enviando}
+                        disabled={enviando || !formaPagamento}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-accent-foreground hover:bg-accent/80 transition disabled:opacity-50"
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        {enviando ? "Enviando..." : "Confirmar Pedido"}
+                        {enviando ? "Enviando..." : !formaPagamento ? "Selecione a forma de pagamento" : "Confirmar Pedido"}
                       </button>
                     )}
                   </>

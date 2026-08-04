@@ -21,7 +21,15 @@ interface Pedido {
   total: number | null;
   status: string;
   created_at: string;
+  forma_pagamento: string | null;
+  comprador_nome: string | null;
+  comprador_telefone: string | null;
 }
+
+const FORMAS_PAGAMENTO_LABEL: Record<string, string> = {
+  mensalidade_4x: "4x na mensalidade",
+  cartao_10x: "Até 10x no cartão (com juros da maquininha)",
+};
 
 const CATEGORIAS = ["Camisa", "Uniforme", "Agasalho", "Bolsa", "Acessório", "Comemorativo", "Outro"];
 
@@ -29,6 +37,7 @@ export function AdminStore() {
   const [aba, setAba] = useState<"produtos" | "pedidos">("produtos");
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [jogadoresMap, setJogadoresMap] = useState<Record<string, { nome: string; telefone: string | null }>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -38,7 +47,16 @@ export function AdminStore() {
     nome: "", descricao: "", preco: "", categoria: "Camisa", disponivel: true, foto_url: "",
   });
 
-  useEffect(() => { fetchProdutos(); fetchPedidos(); }, []);
+  useEffect(() => { fetchProdutos(); fetchPedidos(); fetchJogadoresMap(); }, []);
+
+  async function fetchJogadoresMap() {
+    const { data } = await supabase.from("jogadores").select("id, nome_completo, apelido, telefone");
+    const map: Record<string, { nome: string; telefone: string | null }> = {};
+    (data ?? []).forEach((j: any) => {
+      map[j.id] = { nome: j.nome_completo ?? j.apelido ?? "Jogador", telefone: j.telefone ?? null };
+    });
+    setJogadoresMap(map);
+  }
 
   async function fetchProdutos() {
     setLoading(true);
@@ -260,13 +278,20 @@ export function AdminStore() {
               <p>Nenhum pedido recebido ainda.</p>
             </div>
           ) : (
-            pedidos.map((p) => (
+            pedidos.map((p) => {
+              const comprador = p.comprador_nome ?? jogadoresMap[p.user_id]?.nome ?? null;
+              const telefone = p.comprador_telefone ?? jogadoresMap[p.user_id]?.telefone ?? null;
+              return (
               <div key={p.id} className="rounded-2xl border border-white/10 p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</p>
                     <p className="font-semibold mt-0.5">Pedido #{p.id.slice(0, 8).toUpperCase()}</p>
-                    {p.total && p.total > 0 && <p className="text-accent font-black">R$ {p.total.toFixed(2)}</p>}
+                    <p className="text-sm font-bold text-white mt-1">
+                      {comprador ?? <span className="text-amber-400 font-semibold">Comprador não identificado</span>}
+                    </p>
+                    {telefone && <p className="text-xs text-muted-foreground">📞 {telefone}</p>}
+                    {p.total && p.total > 0 && <p className="text-accent font-black mt-1">R$ {p.total.toFixed(2)}</p>}
                   </div>
                   <select
                     value={p.status}
@@ -278,6 +303,14 @@ export function AdminStore() {
                     ))}
                   </select>
                 </div>
+                {p.forma_pagamento && (
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Pagamento: </span>
+                    <span className="font-semibold text-accent">
+                      {FORMAS_PAGAMENTO_LABEL[p.forma_pagamento] ?? p.forma_pagamento}
+                    </span>
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   {p.itens.map((item, i) => (
                     <div key={i} className="flex items-center justify-between rounded-xl bg-white/3 px-3 py-2 text-sm">
@@ -292,7 +325,8 @@ export function AdminStore() {
                   </p>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
