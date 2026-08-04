@@ -142,16 +142,21 @@ function PopupAgasalho() {
   const { data: ativaConfig } = useConfig("campanha_agasalho_ativa");
   const { data: tituloConfig } = useConfig("campanha_agasalho_titulo");
   const { data: subtituloConfig } = useConfig("campanha_agasalho_subtitulo");
+  const { data: detalhesConfig } = useConfig("campanha_agasalho_detalhes");
   const salvarConfig = useSalvarConfig();
 
   const [ativa, setAtiva] = useState(false);
   const [titulo, setTitulo] = useState("CAMPANHA DO AGASALHO 2026");
   const [subtitulo, setSubtitulo] = useState("Aliança aquecendo quem precisa!");
+  const [detalhes, setDetalhes] = useState(
+    "Ajude o Aliança a aquecer quem precisa! Doe agasalhos! Disponibilizaremos caixas para o recebimento das doações próximo à churrasqueira, durante o inverno."
+  );
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { if (ativaConfig !== undefined) setAtiva(ativaConfig === "true"); }, [ativaConfig]);
   useEffect(() => { if (tituloConfig) setTitulo(tituloConfig); }, [tituloConfig]);
   useEffect(() => { if (subtituloConfig) setSubtitulo(subtituloConfig); }, [subtituloConfig]);
+  useEffect(() => { if (detalhesConfig) setDetalhes(detalhesConfig); }, [detalhesConfig]);
 
   async function handleSalvar() {
     setSalvando(true);
@@ -160,8 +165,9 @@ function PopupAgasalho() {
         salvarConfig.mutateAsync({ chave: "campanha_agasalho_ativa", valor: ativa ? "true" : "false" }),
         salvarConfig.mutateAsync({ chave: "campanha_agasalho_titulo", valor: titulo }),
         salvarConfig.mutateAsync({ chave: "campanha_agasalho_subtitulo", valor: subtitulo }),
+        salvarConfig.mutateAsync({ chave: "campanha_agasalho_detalhes", valor: detalhes }),
       ]);
-      ["campanha_agasalho_ativa", "campanha_agasalho_titulo", "campanha_agasalho_subtitulo"].forEach((k) => {
+      ["campanha_agasalho_ativa", "campanha_agasalho_titulo", "campanha_agasalho_subtitulo", "campanha_agasalho_detalhes"].forEach((k) => {
         qc.invalidateQueries({ queryKey: ["config", k] });
         qc.invalidateQueries({ queryKey: ["config-public", k] });
       });
@@ -213,6 +219,18 @@ function PopupAgasalho() {
           rows={2}
           onChange={(e) => setSubtitulo(e.target.value)}
           placeholder="Ex: Aliança aquecendo quem precisa!"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="agasalho-detalhes">Chamada para ação (caixa em destaque)</Label>
+        <Textarea
+          id="agasalho-detalhes"
+          value={detalhes}
+          maxLength={300}
+          rows={3}
+          onChange={(e) => setDetalhes(e.target.value)}
+          placeholder="Ex: Ajude o Aliança a aquecer quem precisa! Doe agasalhos! Disponibilizaremos caixas para o recebimento das doações próximo à churrasqueira, durante o inverno."
         />
       </div>
 

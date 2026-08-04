@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Shirt, X, HeartHandshake } from "lucide-react";
+import { X } from "lucide-react";
+import escudo from "@/assets/escudo.png";
 
 // Chave usada para não reexibir o pop-up a cada navegação dentro da mesma visita.
 const SESSION_KEY = "agasalho_modal_visto";
@@ -22,6 +23,7 @@ export function CampanhaAgasalhoModal() {
   const { data: ativa } = useConfigPublic("campanha_agasalho_ativa");
   const { data: titulo } = useConfigPublic("campanha_agasalho_titulo");
   const { data: subtitulo } = useConfigPublic("campanha_agasalho_subtitulo");
+  const { data: detalhes } = useConfigPublic("campanha_agasalho_detalhes");
 
   const [aberto, setAberto] = useState(false);
 
@@ -37,11 +39,6 @@ export function CampanhaAgasalhoModal() {
   function fechar() {
     setAberto(false);
     sessionStorage.setItem(SESSION_KEY, "1");
-  }
-
-  function irParaCampanha() {
-    fechar();
-    document.getElementById("social")?.scrollIntoView({ behavior: "smooth" });
   }
 
   if (ativa !== "true") return null;
@@ -65,8 +62,8 @@ export function CampanhaAgasalhoModal() {
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-md overflow-hidden rounded-3xl border border-amber-400/30 bg-[#0b1230] shadow-2xl"
           >
-            {/* topo com gradiente "friagem" */}
-            <div className="relative h-28 bg-gradient-to-br from-amber-500/25 via-sky-500/15 to-transparent">
+            {/* topo com gradiente "friagem" e escudo centralizado */}
+            <div className="relative flex flex-col items-center justify-center pt-8 pb-4 bg-gradient-to-br from-amber-500/25 via-sky-500/15 to-transparent">
               <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-amber-400/20 blur-2xl" />
               <div className="pointer-events-none absolute -bottom-6 -left-6 h-28 w-28 rounded-full bg-sky-400/20 blur-2xl" />
               <button
@@ -76,12 +73,14 @@ export function CampanhaAgasalhoModal() {
               >
                 <X className="h-4 w-4" />
               </button>
-              <div className="absolute -bottom-7 left-6 grid h-14 w-14 place-items-center rounded-2xl bg-amber-400 text-[#0b1230] shadow-lg">
-                <Shirt className="h-7 w-7" />
-              </div>
+              <img
+                src={escudo}
+                alt="Escudo Aliança do Campo Grande"
+                className="relative h-24 w-24 rounded-full object-contain shadow-lg ring-4 ring-amber-400/40"
+              />
             </div>
 
-            <div className="px-6 pb-6 pt-10">
+            <div className="px-6 pb-6 pt-2 text-center">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400">
                 Aliança Solidário
               </p>
@@ -92,20 +91,11 @@ export function CampanhaAgasalhoModal() {
                 {subtitulo || "Aliança aquecendo quem precisa!"}
               </p>
 
-              <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                <button
-                  onClick={irParaCampanha}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#0b1230] transition hover:bg-amber-300"
-                >
-                  <HeartHandshake className="h-4 w-4" />
-                  Quero ajudar
-                </button>
-                <button
-                  onClick={fechar}
-                  className="flex-1 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/5"
-                >
-                  Agora não
-                </button>
+              <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-4">
+                <p className="text-sm leading-relaxed text-white/90">
+                  {detalhes ||
+                    "Ajude o Aliança a aquecer quem precisa! Doe agasalhos! Disponibilizaremos caixas para o recebimento das doações próximo à churrasqueira, durante o inverno."}
+                </p>
               </div>
             </div>
           </motion.div>
