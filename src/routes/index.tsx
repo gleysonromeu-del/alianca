@@ -10,6 +10,7 @@ import { Aniversariantes } from "@/components/site/Aniversariantes";
 import { MomentosCarousel } from "@/components/site/MomentosCarousel";
 import { AliancaStore } from "@/components/site/AliancaStore";
 import { CaixaSugestoes } from "@/components/site/CaixaSugestoes";
+import { CampanhaAgasalhoModal } from "@/components/site/CampanhaAgasalhoModal";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -34,6 +35,7 @@ function Index() {
   return (
     <div className="relative min-h-screen">
       <WatermarkBackground />
+      <CampanhaAgasalhoModal />
       <Navbar />
       <main>
         <Hero />

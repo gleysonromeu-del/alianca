@@ -2,7 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Loader2, Shirt, Apple, Droplet, CheckCircle2 } from "lucide-react";
+import { Upload, Loader2, Shirt, Apple, Droplet, CheckCircle2, Megaphone } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 async function uploadImagem(file: File, pasta: string): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
@@ -132,6 +137,93 @@ function CampanhaCard({
   );
 }
 
+function PopupAgasalho() {
+  const qc = useQueryClient();
+  const { data: ativaConfig } = useConfig("campanha_agasalho_ativa");
+  const { data: tituloConfig } = useConfig("campanha_agasalho_titulo");
+  const { data: subtituloConfig } = useConfig("campanha_agasalho_subtitulo");
+  const salvarConfig = useSalvarConfig();
+
+  const [ativa, setAtiva] = useState(false);
+  const [titulo, setTitulo] = useState("CAMPANHA DO AGASALHO 2026");
+  const [subtitulo, setSubtitulo] = useState("Aliança aquecendo quem precisa!");
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => { if (ativaConfig !== undefined) setAtiva(ativaConfig === "true"); }, [ativaConfig]);
+  useEffect(() => { if (tituloConfig) setTitulo(tituloConfig); }, [tituloConfig]);
+  useEffect(() => { if (subtituloConfig) setSubtitulo(subtituloConfig); }, [subtituloConfig]);
+
+  async function handleSalvar() {
+    setSalvando(true);
+    try {
+      await Promise.all([
+        salvarConfig.mutateAsync({ chave: "campanha_agasalho_ativa", valor: ativa ? "true" : "false" }),
+        salvarConfig.mutateAsync({ chave: "campanha_agasalho_titulo", valor: titulo }),
+        salvarConfig.mutateAsync({ chave: "campanha_agasalho_subtitulo", valor: subtitulo }),
+      ]);
+      ["campanha_agasalho_ativa", "campanha_agasalho_titulo", "campanha_agasalho_subtitulo"].forEach((k) => {
+        qc.invalidateQueries({ queryKey: ["config", k] });
+        qc.invalidateQueries({ queryKey: ["config-public", k] });
+      });
+      toast.success("Pop-up da campanha atualizado!");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao salvar");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-400/25 bg-amber-400/5 p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400/20 text-amber-400">
+            <Megaphone className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-base">Pop-up da campanha (home)</h3>
+            <p className="text-xs text-muted-foreground">
+              Aparece uma vez por visita para quem entra no site.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground">{ativa ? "Ativo" : "Inativo"}</span>
+          <Switch checked={ativa} onCheckedChange={setAtiva} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="agasalho-titulo">Título (destaque)</Label>
+        <Input
+          id="agasalho-titulo"
+          value={titulo}
+          maxLength={80}
+          onChange={(e) => setTitulo(e.target.value)}
+          placeholder="Ex: CAMPANHA DO AGASALHO 2026"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="agasalho-subtitulo">Texto de apoio</Label>
+        <Textarea
+          id="agasalho-subtitulo"
+          value={subtitulo}
+          maxLength={160}
+          rows={2}
+          onChange={(e) => setSubtitulo(e.target.value)}
+          placeholder="Ex: Aliança aquecendo quem precisa!"
+        />
+      </div>
+
+      <Button onClick={handleSalvar} disabled={salvando} className="w-full">
+        {salvando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+        Salvar pop-up
+      </Button>
+    </div>
+  );
+}
+
 export function AdminCampanhas() {
   return (
     <div className="space-y-5">
@@ -141,6 +233,9 @@ export function AdminCampanhas() {
           Envie as fotos que vão aparecer nos cards circulares da seção "Aliança Solidário" no site.
         </p>
       </div>
+
+      <PopupAgasalho />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <CampanhaCard
           icone={Shirt}
