@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Navbar } from "@/components/site/Navbar";
 import { Hero } from "@/components/site/Hero";
 import { CampeonatoMensalSection } from "@/components/site/CampeonatoMensalSection";
@@ -32,6 +33,16 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const id = window.location.hash.slice(1);
+    // pequeno atraso para garantir que as seções (imagens, dados) já renderizaram
+    const t = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 400);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div className="relative min-h-screen">
       <WatermarkBackground />

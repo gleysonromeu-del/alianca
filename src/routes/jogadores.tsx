@@ -389,12 +389,13 @@ function JogadoresPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <a
-              href="/#store"
+            <Link
+              to="/"
+              hash="store"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent/80"
             >
               🛒 Aliança Store
-            </a>
+            </Link>
             <Link to="/" className="inline-flex h-9 items-center justify-center rounded-md border border-input px-4 text-sm hover:bg-accent">
               Site
             </Link>
