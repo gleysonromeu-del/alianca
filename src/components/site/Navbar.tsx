@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 const links = [
   { label: "Home", href: "#home" },
   { label: "O Aliança", href: "#sobre" },
+  { label: "Aliança Store", href: "#store" },
   { label: "Social", href: "#social" },
   { label: "Contato", href: "#contato" },
 ];

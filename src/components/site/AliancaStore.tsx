@@ -143,7 +143,7 @@ export function AliancaStore() {
   }
 
   return (
-    <section className="py-20 px-6" id="store">
+    <section className="py-20 px-6 scroll-mt-24" id="store">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-10 flex items-end justify-between">
