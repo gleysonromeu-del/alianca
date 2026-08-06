@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import AdminCampeonato from "@/pages/admin/AdminCampeonato";
 import { AdminEstatisticas } from "@/pages/admin/AdminEstatisticas";
 import { AdminConfiguracoes } from "@/pages/admin/AdminConfiguracoes";
+import { AdminStore } from "@/pages/admin/AdminStore";
+import { AdminSugestoes } from "@/pages/admin/AdminSugestoes";
+import { AdminCampanhas } from "@/pages/admin/AdminCampanhas";
 
 export const Route = createFileRoute("/jogadores")({
   component: JogadoresPage,
@@ -94,7 +97,7 @@ type Inscricao = {
 };
 
 // Abas do painel admin
-type AdminAba = "inscricoes" | "elenco" | "aprovacao" | "pagamentos" | "momentos" | "campeonato" | "estatisticas" | "configuracoes";
+type AdminAba = "inscricoes" | "elenco" | "aprovacao" | "pagamentos" | "momentos" | "campeonato" | "store" | "sugestoes" | "campanhas" | "estatisticas" | "configuracoes";
 
 type MomentoAdmin = {
   id: string;
@@ -367,6 +370,9 @@ function JogadoresPage() {
       badge: momentos.filter((m) => m.aprovado === false).length || undefined,
     },
     { id: "campeonato", label: "⚽ Campeonato" },
+    { id: "store", label: "🛍️ Aliança Store" },
+    { id: "sugestoes", label: "💬 Sugestões" },
+    { id: "campanhas", label: "❤️ Campanhas" },
     { id: "estatisticas", label: "📊 Estatísticas" },
     { id: "configuracoes", label: "⚙️ Configurações" },
   ];
@@ -779,6 +785,21 @@ function JogadoresPage() {
             {/* ── Aba: Campeonato ── */}
             {adminAba === "campeonato" && (
               <AdminCampeonato />
+            )}
+
+            {/* ── Aba: Aliança Store ── */}
+            {adminAba === "store" && (
+              <AdminStore />
+            )}
+
+            {/* ── Aba: Sugestões ── */}
+            {adminAba === "sugestoes" && (
+              <AdminSugestoes />
+            )}
+
+            {/* ── Aba: Campanhas ── */}
+            {adminAba === "campanhas" && (
+              <AdminCampanhas />
             )}
 
             {/* ── Aba: Estatísticas ── */}

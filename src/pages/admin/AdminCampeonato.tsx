@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trophy, Calendar, Shield, Trash2, CheckCircle2,
   Beer, AlertTriangle, X, Loader2, BarChart3, Upload, Camera, Edit3,
-  ShoppingBag, MessageSquare, Heart,
 } from "lucide-react";
 import {
   useCampeonatoAtual,
@@ -25,9 +24,6 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AdminStore } from "@/pages/admin/AdminStore";
-import { AdminSugestoes } from "@/pages/admin/AdminSugestoes";
-import { AdminCampanhas } from "@/pages/admin/AdminCampanhas";
 
 // ─── Upload helper ─────────────────────────────────────────────────────────────
 
@@ -887,48 +883,19 @@ function TabCampeonato() {
   );
 }
 
-// ─── Página Principal com Abas ────────────────────────────────────────────────
-
-type AdminAba = "campeonato" | "store" | "sugestoes" | "campanhas";
+// ─── Página Principal (apenas Campeonato — Store/Sugestões/Campanhas agora ficam na aba principal do admin) ──
 
 export default function AdminCampeonato() {
-  const [aba, setAba] = useState<AdminAba>("campeonato");
-
-  const abas: { id: AdminAba; label: string; icon: React.ReactNode }[] = [
-    { id: "campeonato", label: "Campeonato", icon: <Trophy className="h-4 w-4" /> },
-    { id: "store", label: "Store", icon: <ShoppingBag className="h-4 w-4" /> },
-    { id: "sugestoes", label: "Sugestões", icon: <MessageSquare className="h-4 w-4" /> },
-    { id: "campanhas", label: "Campanhas", icon: <Heart className="h-4 w-4" /> },
-  ];
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      {/* Header com abas */}
       <div className="mb-8">
         <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-accent">Painel Admin</p>
-        <div className="flex gap-2 flex-wrap">
-          {abas.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => setAba(a.id)}
-              className={`flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold transition ${
-                aba === a.id
-                  ? "bg-accent text-accent-foreground shadow-lg"
-                  : "border border-white/10 bg-white/3 text-muted-foreground hover:bg-white/8 hover:text-foreground"
-              }`}
-            >
-              {a.icon}
-              {a.label}
-            </button>
-          ))}
-        </div>
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-accent" />
+          Campeonato
+        </h2>
       </div>
-
-      {/* Conteúdo da aba */}
-      {aba === "campeonato" && <TabCampeonato />}
-      {aba === "store" && <AdminStore />}
-      {aba === "sugestoes" && <AdminSugestoes />}
-      {aba === "campanhas" && <AdminCampanhas />}
+      <TabCampeonato />
     </div>
   );
 }
