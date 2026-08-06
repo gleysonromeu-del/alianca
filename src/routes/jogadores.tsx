@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MomentosUpload } from "@/components/site/MomentosUpload";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import AdminCampeonato from "@/pages/admin/AdminCampeonato";
 import { AdminEstatisticas } from "@/pages/admin/AdminEstatisticas";
 import { AdminConfiguracoes } from "@/pages/admin/AdminConfiguracoes";
@@ -345,6 +347,43 @@ function JogadoresPage() {
     await refresh();
   }
 
+  function exportarElencoPDF() {
+    const elenco = [...jogadores]
+      .filter((j) => j.ativo === true)
+      .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+
+    if (elenco.length === 0) {
+      toast.error("Nenhum jogador no elenco para exportar.");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Aliança do Campo Grande — Elenco", 14, 18);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} · ${elenco.length} jogador(es)`, 14, 24);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Nome", "Posição", "Nº", "Observações"]],
+      body: elenco.map((j) => [j.nome_completo, j.posicao, j.numero_camisa ? String(j.numero_camisa) : "-", ""]),
+      styles: { fontSize: 10, cellPadding: 4, valign: "middle" },
+      headStyles: { fillColor: [11, 18, 48], textColor: 255, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 65 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 15, halign: "center" },
+        3: { cellWidth: "auto", minCellHeight: 10 }, // em branco, espaço para anotação manual
+      },
+    });
+
+    doc.save(`elenco-alianca-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando...</div>;
   if (!user) return null;
 
@@ -617,7 +656,12 @@ function JogadoresPage() {
             {/* ── Aba: Elenco ── */}
             {adminAba === "elenco" && (
               <>
-                <h2 className="text-xl font-bold text-foreground mb-4">Elenco ({jogadores.filter(j => j.ativo === true).length})</h2>
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                  <h2 className="text-xl font-bold text-foreground">Elenco ({jogadores.filter(j => j.ativo === true).length})</h2>
+                  <Button size="sm" variant="outline" onClick={exportarElencoPDF} className="gap-1.5">
+                    📄 Exportar PDF
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
                   {jogadores.filter(j => j.ativo === true).map((p) => <JogadorCard key={p.id} p={p} />)}
                   {jogadores.filter(j => j.ativo === true).length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador aprovado ainda.</p>}
