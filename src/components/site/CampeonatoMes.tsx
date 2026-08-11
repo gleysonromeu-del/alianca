@@ -107,7 +107,18 @@ export default function CampeonatoMes() {
         .order("pontos", { ascending: false })
         .order("vitorias", { ascending: false });
 
-      if (timesData) setTimes(timesData);
+      if (timesData) {
+        // Critério oficial de desempate: pontos → vitórias → saldo de gols → gols pró.
+        // O .order() do Supabase não cobre saldo de gols, então reordenamos no cliente.
+        const ordenados = [...timesData].sort(
+          (a, b) =>
+            b.pontos - a.pontos ||
+            b.vitorias - a.vitorias ||
+            (b.gols_pro - b.gols_contra) - (a.gols_pro - a.gols_contra) ||
+            b.gols_pro - a.gols_pro,
+        );
+        setTimes(ordenados);
+      }
 
       // 3. Partidas (com nomes dos times via join)
       const { data: partidasData } = await supabase
