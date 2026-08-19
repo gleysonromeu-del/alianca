@@ -53,7 +53,15 @@ function useTodosJogadoresClube() {
   return useQuery({
     queryKey: ["jogadores-clube"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("jogadores").select("id, nome_completo, apelido").eq("ativo", true).order("apelido");
+      // Inclui aprovados (ativo=true) e pendentes de aprovação (ativo=false),
+      // excluindo apenas os rejeitados (ativo=null) — assim todo jogador
+      // cadastrado no elenco aparece no formulário de estatísticas,
+      // mesmo que ainda não tenha sido aprovado formalmente.
+      const { data, error } = await supabase
+        .from("jogadores")
+        .select("id, nome_completo, apelido")
+        .not("ativo", "is", null)
+        .order("apelido");
       if (error) throw error;
       return (data ?? []) as { id: string; nome_completo: string; apelido: string }[];
     },
@@ -133,7 +141,7 @@ interface LinhaJogador {
 }
 
 function linhaVazia(jogador: { id: string; nome_completo: string; apelido: string }): LinhaJogador {
-  return { jogador_id: jogador.id, nome: jogador.apelido || jogador.nome_completo, presente: true, gols: 0, assistencias: 0, amarelos: 0, vermelhos: 0 };
+  return { jogador_id: jogador.id, nome: jogador.apelido || jogador.nome_completo || "Jogador sem nome", presente: true, gols: 0, assistencias: 0, amarelos: 0, vermelhos: 0 };
 }
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
@@ -312,7 +320,7 @@ function ModalEstatisticas({ partida, onClose }: { partida: Partida; onClose: ()
   const initLinhas = (timeId: string): LinhaJogador[] =>
     todosJogadores.map((j) => {
       const salvo = estatSalvas.find((e: any) => e.jogador_id === j.id && e.time_id === timeId);
-      if (salvo) return { jogador_id: j.id, nome: j.apelido || j.nome_completo, presente: salvo.presente, gols: salvo.gols, assistencias: salvo.assistencias, amarelos: salvo.amarelos, vermelhos: salvo.vermelhos };
+      if (salvo) return { jogador_id: j.id, nome: j.apelido || j.nome_completo || "Jogador sem nome", presente: salvo.presente, gols: salvo.gols, assistencias: salvo.assistencias, amarelos: salvo.amarelos, vermelhos: salvo.vermelhos };
       return { ...linhaVazia(j), presente: false };
     });
 
