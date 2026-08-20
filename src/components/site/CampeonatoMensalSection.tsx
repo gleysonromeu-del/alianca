@@ -206,6 +206,8 @@ export function CampeonatoMensalSection() {
       }
 
       // Estatísticas acumuladas do ano
+      const map: Record<string, EstatisticaJogador> = {};
+
       if (todasPartidasIds.length > 0) {
         const { data: estatData } = await supabase
           .from("estatisticas_partida")
@@ -230,7 +232,6 @@ export function CampeonatoMensalSection() {
           const jogMap = Object.fromEntries((jogData ?? []).map((j: any) => [j.id, j]));
           const timeMap = Object.fromEntries((timesEstat ?? []).map((t: any) => [t.id, t]));
 
-          const map: Record<string, EstatisticaJogador> = {};
           for (const row of estatData as any[]) {
             const jid = row.jogador_id;
             const jog = jogMap[jid];
@@ -253,9 +254,53 @@ export function CampeonatoMensalSection() {
             map[jid].vermelhos += row.vermelhos ?? 0;
             map[jid].partidas += 1;
           }
-          setJogadores(Object.values(map));
         }
       }
+
+      // Rankings manuais lançados no painel admin "Estatísticas — Acumulado"
+      // (tabela configuracoes, chaves artilharia_ANO / assistencias_ANO).
+      // Esses valores são a fonte principal para gols/assistências: sobrescrevem
+      // o que veio das partidas, e criam a linha do jogador se ele ainda não
+      // tiver nenhuma partida lançada via súmula.
+      const { data: configRankings } = await supabase
+        .from("configuracoes")
+        .select("chave, valor")
+        .in("chave", [`artilharia_${anoAtual}`, `assistencias_${anoAtual}`]);
+
+      const rankingArtilharia: { jogador_id: string; apelido: string; valor: number }[] =
+        (() => { try { return JSON.parse(configRankings?.find((c: any) => c.chave === `artilharia_${anoAtual}`)?.valor ?? "[]"); } catch { return []; } })();
+      const rankingAssist: { jogador_id: string; apelido: string; valor: number }[] =
+        (() => { try { return JSON.parse(configRankings?.find((c: any) => c.chave === `assistencias_${anoAtual}`)?.valor ?? "[]"); } catch { return []; } })();
+
+      const idsRankingManual = [...new Set([...rankingArtilharia, ...rankingAssist].map((r) => r.jogador_id))]
+        .filter((id) => !map[id]);
+
+      if (idsRankingManual.length > 0) {
+        const { data: jogadoresManual } = await supabase
+          .from("jogadores")
+          .select("id, nome_completo, apelido, foto_url")
+          .in("id", idsRankingManual);
+        for (const jog of jogadoresManual ?? []) {
+          map[jog.id] = {
+            jogador_id: jog.id,
+            nome: jog.nome_completo ?? "",
+            apelido: jog.apelido ?? "",
+            foto_url: jog.foto_url ?? null,
+            time_nome: "",
+            time_cor: "#888",
+            gols: 0, assistencias: 0, amarelos: 0, vermelhos: 0, partidas: 0,
+          };
+        }
+      }
+
+      for (const r of rankingArtilharia) {
+        if (map[r.jogador_id]) map[r.jogador_id].gols = r.valor;
+      }
+      for (const r of rankingAssist) {
+        if (map[r.jogador_id]) map[r.jogador_id].assistencias = r.valor;
+      }
+
+      setJogadores(Object.values(map));
 
       // Partidas do mês atual para exibir na aba "Partidas"
       const partidaIds = (partidasData || []).map((p: any) => p.id);
