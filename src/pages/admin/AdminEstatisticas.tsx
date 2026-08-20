@@ -151,6 +151,11 @@ function construirNomesCurtos(
   return mapa;
 }
 
+/** Nome compacto de um único jogador: apelido, ou primeiro nome se não tiver apelido */
+function nomeExibicaoJogador(j: { nome_completo: string; apelido: string }): string {
+  return (j.apelido || primeiroNome(j.nome_completo) || j.nome_completo || "Jogador sem nome").trim();
+}
+
 // ─── Tabela individual de ranking ─────────────────────────────────────────────
 
 function TabelaRanking({
@@ -349,12 +354,10 @@ function TabelaCartoes({
   }
 
   const jogById = new Map(todosJogadores.map((j) => [j.id, j]));
-  const nomesCurtos = construirNomesCurtos(todosJogadores);
 
   function nomeExibicao(l: LinhaCartao): string {
-    if (nomesCurtos.has(l.jogador_id)) return nomesCurtos.get(l.jogador_id)!;
     const j = jogById.get(l.jogador_id);
-    return j?.apelido || j?.nome_completo || l.apelido || "Jogador sem nome";
+    return (j?.apelido || primeiroNome(j?.nome_completo || "") || l.apelido || "Jogador sem nome").trim();
   }
 
   // ordenado por total de cartões desc (vermelho pesa mais)
@@ -392,7 +395,7 @@ function TabelaCartoes({
           <option value="">+ Adicionar jogador</option>
           {disponiveis.map((j) => (
             <option key={j.id} value={j.id} style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>
-              {nomesCurtos.get(j.id) ?? (j.apelido || j.nome_completo || "Jogador sem nome")}
+              {nomeExibicaoJogador(j)}
             </option>
           ))}
         </select>
@@ -415,24 +418,24 @@ function TabelaCartoes({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-white/5">
-              <th className="px-4 py-2 text-left w-8">#</th>
-              <th className="px-4 py-2 text-left">Jogador</th>
-              <th className="px-4 py-2 text-center w-36">🟨 Amarelos</th>
-              <th className="px-4 py-2 text-center w-36">🟥 Vermelhos</th>
-              <th className="px-4 py-2 w-10"></th>
+              <th className="px-2 py-2 text-left w-6">#</th>
+              <th className="px-2 py-2 text-left">Jogador</th>
+              <th className="px-2 py-2 text-center w-24">🟨 Am.</th>
+              <th className="px-2 py-2 text-center w-24">🟥 Verm.</th>
+              <th className="px-2 py-2 w-8"></th>
             </tr>
           </thead>
           <tbody>
             {ordenado.map((l, i) => (
               <tr key={l.jogador_id} className="border-t border-white/5 hover:bg-white/3 transition">
-                <td className="px-4 py-3 text-center">
+                <td className="px-2 py-3 text-center">
                   <span className="text-xs font-black text-muted-foreground">{i + 1}º</span>
                 </td>
-                <td className="px-4 py-3 font-semibold">{nomeExibicao(l)}</td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-3 font-semibold whitespace-nowrap">{nomeExibicao(l)}</td>
+                <td className="px-2 py-3">
                   <NumBtn value={l.amarelos} onChange={(v) => updateAmarelos(l.jogador_id, v)} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-3">
                   <NumBtn value={l.vermelhos} onChange={(v) => updateVermelhos(l.jogador_id, v)} />
                 </td>
                 <td className="px-4 py-3 text-center">
