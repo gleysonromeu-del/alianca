@@ -53,10 +53,11 @@ function useJogadoresClube() {
   return useQuery({
     queryKey: ["jogadores-clube"],
     queryFn: async () => {
+      // Inclui aprovados (ativo=true) e pendentes (ativo=false), excluindo só rejeitados (ativo=null)
       const { data, error } = await supabase
         .from("jogadores")
         .select("id, nome_completo, apelido")
-        .eq("ativo", true)
+        .not("ativo", "is", null)
         .order("apelido");
       if (error) throw error;
       return data ?? [];
@@ -125,6 +126,13 @@ function TabelaRanking({
     setLinhas((prev) => prev.map((l) => l.jogador_id === id ? { ...l, valor: v } : l));
   }
 
+  const jogById = new Map(todosJogadores.map((j) => [j.id, j]));
+
+  function nomeExibicao(l: LinhaEstat): string {
+    const j = jogById.get(l.jogador_id);
+    return j?.apelido || j?.nome_completo || l.apelido || "Jogador sem nome";
+  }
+
   // ordenado por valor desc
   const ordenado = [...linhas].sort((a, b) => b.valor - a.valor);
 
@@ -159,7 +167,9 @@ function TabelaRanking({
         >
           <option value="">+ Adicionar jogador</option>
           {disponiveis.map((j) => (
-            <option key={j.id} value={j.id}>{j.apelido || j.nome_completo}</option>
+            <option key={j.id} value={j.id}>
+              {j.apelido && j.nome_completo ? `${j.apelido} — ${j.nome_completo}` : (j.apelido || j.nome_completo || "Jogador sem nome")}
+            </option>
           ))}
         </select>
         <button
@@ -194,7 +204,7 @@ function TabelaRanking({
                     {i + 1}º
                   </span>
                 </td>
-                <td className="px-4 py-3 font-semibold">{l.apelido}</td>
+                <td className="px-4 py-3 font-semibold">{nomeExibicao(l)}</td>
                 <td className="px-4 py-3">
                   <NumBtn value={l.valor} onChange={(v) => updateValor(l.jogador_id, v)} />
                 </td>
