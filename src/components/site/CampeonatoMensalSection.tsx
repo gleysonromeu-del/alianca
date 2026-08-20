@@ -106,7 +106,7 @@ export function CampeonatoMensalSection() {
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [aba, setAba] = useState<"artilharia" | "assistencias" | "partidas" | "cartoes">("artilharia");
+  const [aba, setAba] = useState<"artilharia" | "assistencias" | "cartoes">("artilharia");
   const [nomeCampeonato, setNomeCampeonato] = useState<string | null>(null);
   const [fotoGalo, setFotoGalo] = useState<string | null>(null);
   const [tituloGalo, setTituloGalo] = useState<string | null>(null);
@@ -265,14 +265,16 @@ export function CampeonatoMensalSection() {
       const { data: configRankings } = await supabase
         .from("configuracoes")
         .select("chave, valor")
-        .in("chave", [`artilharia_${anoAtual}`, `assistencias_${anoAtual}`]);
+        .in("chave", [`artilharia_${anoAtual}`, `assistencias_${anoAtual}`, `cartoes_${anoAtual}`]);
 
       const rankingArtilharia: { jogador_id: string; apelido: string; valor: number }[] =
         (() => { try { return JSON.parse(configRankings?.find((c: any) => c.chave === `artilharia_${anoAtual}`)?.valor ?? "[]"); } catch { return []; } })();
       const rankingAssist: { jogador_id: string; apelido: string; valor: number }[] =
         (() => { try { return JSON.parse(configRankings?.find((c: any) => c.chave === `assistencias_${anoAtual}`)?.valor ?? "[]"); } catch { return []; } })();
+      const rankingCartoes: { jogador_id: string; apelido: string; amarelos: number; vermelhos: number }[] =
+        (() => { try { return JSON.parse(configRankings?.find((c: any) => c.chave === `cartoes_${anoAtual}`)?.valor ?? "[]"); } catch { return []; } })();
 
-      const idsRankingManual = [...new Set([...rankingArtilharia, ...rankingAssist].map((r) => r.jogador_id))]
+      const idsRankingManual = [...new Set([...rankingArtilharia, ...rankingAssist, ...rankingCartoes].map((r) => r.jogador_id))]
         .filter((id) => !map[id]);
 
       if (idsRankingManual.length > 0) {
@@ -298,6 +300,12 @@ export function CampeonatoMensalSection() {
       }
       for (const r of rankingAssist) {
         if (map[r.jogador_id]) map[r.jogador_id].assistencias = r.valor;
+      }
+      for (const r of rankingCartoes) {
+        if (map[r.jogador_id]) {
+          map[r.jogador_id].amarelos = r.amarelos;
+          map[r.jogador_id].vermelhos = r.vermelhos;
+        }
       }
 
       setJogadores(Object.values(map));
@@ -784,7 +792,7 @@ export function CampeonatoMensalSection() {
             </div>
 
             <div style={S.tabs}>
-              {[{ id: "artilharia", label: "⚽ Artilharia" }, { id: "assistencias", label: "🎯 Assistências" }, { id: "partidas", label: "📅 Partidas" }, { id: "cartoes", label: "🟨 Cartões" }].map((t) => (
+              {[{ id: "artilharia", label: "⚽ Artilharia" }, { id: "assistencias", label: "🎯 Assistências" }, { id: "cartoes", label: "🟨 Cartões" }].map((t) => (
                 <button key={t.id} style={S.tab(aba === t.id)} onClick={() => setAba(t.id as any)}>{t.label}</button>
               ))}
             </div>
@@ -848,31 +856,6 @@ export function CampeonatoMensalSection() {
                   )}
                 </tbody>
               </table>
-              </div>
-            )}
-
-            {/* Partidas */}
-            {aba === "partidas" && (
-              <div>
-                {partidas.length === 0 && <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, textAlign: "center", paddingTop: 24 }}>Nenhuma partida encerrada ainda.</p>}
-                {partidas.map((p) => {
-                  const aW = p.gols_a > p.gols_b, bW = p.gols_b > p.gols_a;
-                  const dt = p.data ? new Date(p.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "—";
-                  return (
-                    <div key={p.id} style={S.pCard}>
-                      <div style={S.pRound}>{dt}</div>
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <span style={S.pTime}><TeamDot cor={(p.time_a as any).cor} size={8} />{(p.time_a as any).nome}</span>
-                        <div style={S.pScore}>
-                          <span style={S.pGol(aW)}>{p.gols_a}</span>
-                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>×</span>
-                          <span style={S.pGol(bW)}>{p.gols_b}</span>
-                        </div>
-                        <span style={S.pTime}>{(p.time_b as any).nome}<TeamDot cor={(p.time_b as any).cor} size={8} /></span>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             )}
 
