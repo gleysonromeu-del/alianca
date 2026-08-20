@@ -75,6 +75,40 @@ function NumBtn({ value, onChange }: { value: number; onChange: (v: number) => v
   );
 }
 
+// ─── Nome curto: primeiro nome (+ sobrenome só se houver primeiro nome repetido) ──
+
+function primeiroNome(nomeCompleto: string): string {
+  return (nomeCompleto || "").trim().split(/\s+/)[0] || "";
+}
+
+function ultimoSobrenome(nomeCompleto: string): string {
+  const partes = (nomeCompleto || "").trim().split(/\s+/);
+  return partes.length > 1 ? partes[partes.length - 1] : "";
+}
+
+/** Monta um mapa id -> "Apelido — Nome" (ou "Apelido — Nome Sobrenome" se o primeiro nome se repetir entre os jogadores da lista) */
+function construirNomesCurtos(
+  jogadores: { id: string; nome_completo: string; apelido: string }[]
+): Map<string, string> {
+  const contagemPorPrimeiroNome = new Map<string, number>();
+  jogadores.forEach((j) => {
+    const chave = primeiroNome(j.nome_completo).toLowerCase();
+    if (!chave) return;
+    contagemPorPrimeiroNome.set(chave, (contagemPorPrimeiroNome.get(chave) ?? 0) + 1);
+  });
+
+  const mapa = new Map<string, string>();
+  jogadores.forEach((j) => {
+    const pn = primeiroNome(j.nome_completo);
+    const chave = pn.toLowerCase();
+    const repetido = (contagemPorPrimeiroNome.get(chave) ?? 0) > 1;
+    const nomeBase = repetido ? `${pn} ${ultimoSobrenome(j.nome_completo)}`.trim() : pn;
+    const label = j.apelido && nomeBase ? `${j.apelido} — ${nomeBase}` : (j.apelido || nomeBase || "Jogador sem nome");
+    mapa.set(j.id, label);
+  });
+  return mapa;
+}
+
 // ─── Tabela individual de ranking ─────────────────────────────────────────────
 
 function TabelaRanking({
@@ -127,8 +161,10 @@ function TabelaRanking({
   }
 
   const jogById = new Map(todosJogadores.map((j) => [j.id, j]));
+  const nomesCurtos = construirNomesCurtos(todosJogadores);
 
   function nomeExibicao(l: LinhaEstat): string {
+    if (nomesCurtos.has(l.jogador_id)) return nomesCurtos.get(l.jogador_id)!;
     const j = jogById.get(l.jogador_id);
     return j?.apelido || j?.nome_completo || l.apelido || "Jogador sem nome";
   }
@@ -161,14 +197,14 @@ function TabelaRanking({
       {/* Adicionar jogador */}
       <div className="flex gap-2 items-center px-4 py-3 border-b border-white/10 bg-white/2">
         <select
-          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50"
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-accent/50 text-foreground [&>option]:bg-slate-900 [&>option]:text-white"
           value={jogSelecionado}
           onChange={(e) => setJogSelecionado(e.target.value)}
         >
           <option value="">+ Adicionar jogador</option>
           {disponiveis.map((j) => (
-            <option key={j.id} value={j.id}>
-              {j.apelido && j.nome_completo ? `${j.apelido} — ${j.nome_completo}` : (j.apelido || j.nome_completo || "Jogador sem nome")}
+            <option key={j.id} value={j.id} style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>
+              {nomesCurtos.get(j.id) ?? (j.apelido || j.nome_completo || "Jogador sem nome")}
             </option>
           ))}
         </select>
