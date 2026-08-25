@@ -40,8 +40,13 @@ function JogadorCard({ p }: { p: Jogador }) {
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-semibold text-foreground">
+          <p className="font-semibold text-foreground flex items-center gap-2">
             {p.nome_completo} {p.numero_camisa ? <span className="text-primary">#{p.numero_camisa}</span> : null}
+            {p.ativo === false && (
+              <span className="rounded-full bg-amber-500/20 text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                Pendente
+              </span>
+            )}
           </p>
           <p className="text-xs text-muted-foreground">"{p.apelido}" · {p.posicao}</p>
         </div>
@@ -349,7 +354,7 @@ function JogadoresPage() {
 
   function exportarElencoPDF() {
     const elenco = [...jogadores]
-      .filter((j) => j.ativo === true)
+      .filter((j) => j.ativo !== null)
       .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
 
     if (elenco.length === 0) {
@@ -370,7 +375,7 @@ function JogadoresPage() {
     autoTable(doc, {
       startY: 30,
       head: [["Nome", "Posição", "Nº", "Observações"]],
-      body: elenco.map((j) => [j.nome_completo, j.posicao, j.numero_camisa ? String(j.numero_camisa) : "-", ""]),
+      body: elenco.map((j) => [j.nome_completo, j.posicao, j.numero_camisa ? String(j.numero_camisa) : "-", j.ativo === false ? "Pendente" : ""]),
       styles: { fontSize: 10, cellPadding: 4, valign: "middle" },
       headStyles: { fillColor: [11, 18, 48], textColor: 255, fontStyle: "bold" },
       columnStyles: {
@@ -657,14 +662,14 @@ function JogadoresPage() {
             {adminAba === "elenco" && (
               <>
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                  <h2 className="text-xl font-bold text-foreground">Elenco ({jogadores.filter(j => j.ativo === true).length})</h2>
+                  <h2 className="text-xl font-bold text-foreground">Elenco ({jogadores.filter(j => j.ativo !== null).length})</h2>
                   <Button size="sm" variant="outline" onClick={exportarElencoPDF} className="gap-1.5">
                     📄 Exportar PDF
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                  {jogadores.filter(j => j.ativo === true).map((p) => <JogadorCard key={p.id} p={p} />)}
-                  {jogadores.filter(j => j.ativo === true).length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador aprovado ainda.</p>}
+                  {jogadores.filter(j => j.ativo !== null).map((p) => <JogadorCard key={p.id} p={p} />)}
+                  {jogadores.filter(j => j.ativo !== null).length === 0 && <p className="text-sm text-muted-foreground">Nenhum jogador cadastrado ainda.</p>}
                 </div>
               </>
             )}
