@@ -2,12 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Loader2, Shirt, Apple, Droplet, CheckCircle2, Megaphone } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import {
+  Upload, Loader2, Shirt, Apple, Droplet, CheckCircle2,
+  Vote, Plus, Trash2, ImagePlus, Play, Square, BarChart3, X,
+} from "lucide-react";
+import {
+  useEnquetesAdmin,
+  useCriarEnquete,
+  useAtualizarStatusEnquete,
+  useExcluirEnquete,
+  useResultadosEnquete,
+  uploadImagemOpcao,
+  CATEGORIA_LABEL,
+  type EnqueteCategoria,
+} from "@/hooks/use-enquetes";
 
 async function uploadImagem(file: File, pasta: string): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
@@ -137,123 +145,308 @@ function CampanhaCard({
   );
 }
 
-function PopupAgasalho() {
-  const qc = useQueryClient();
-  const { data: ativaConfig } = useConfig("campanha_agasalho_ativa");
-  const { data: tituloConfig } = useConfig("campanha_agasalho_titulo");
-  const { data: subtituloConfig } = useConfig("campanha_agasalho_subtitulo");
-  const { data: detalhesConfig } = useConfig("campanha_agasalho_detalhes");
-  const salvarConfig = useSalvarConfig();
-
-  const [ativa, setAtiva] = useState(false);
-  const [titulo, setTitulo] = useState("CAMPANHA DO AGASALHO 2026");
-  const [subtitulo, setSubtitulo] = useState("Aliança aquecendo quem precisa!");
-  const [detalhes, setDetalhes] = useState(
-    "Ajude o Aliança a aquecer quem precisa! Doe agasalhos! Disponibilizaremos caixas para o recebimento das doações próximo à churrasqueira, durante o inverno."
-  );
+// ─── Nova enquete: formulário com opções + upload de imagem por opção ───
+function NovaEnquete({ onCriada }: { onCriada: () => void }) {
+  const criar = useCriarEnquete();
+  const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [categoria, setCategoria] = useState<EnqueteCategoria>("clube");
+  const [opcoes, setOpcoes] = useState<{ texto: string; imagem_url: string | null; uploading: boolean }[]>([
+    { texto: "", imagem_url: null, uploading: false },
+    { texto: "", imagem_url: null, uploading: false },
+  ]);
   const [salvando, setSalvando] = useState(false);
+  const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  // usamos um id temporário só para organizar a pasta de upload antes de a enquete existir
+  const [tempId] = useState(() => crypto.randomUUID());
 
-  useEffect(() => { if (ativaConfig !== undefined) setAtiva(ativaConfig === "true"); }, [ativaConfig]);
-  useEffect(() => { if (tituloConfig) setTitulo(tituloConfig); }, [tituloConfig]);
-  useEffect(() => { if (subtituloConfig) setSubtitulo(subtituloConfig); }, [subtituloConfig]);
-  useEffect(() => { if (detalhesConfig) setDetalhes(detalhesConfig); }, [detalhesConfig]);
+  function addOpcao() {
+    if (opcoes.length >= 10) return;
+    setOpcoes((o) => [...o, { texto: "", imagem_url: null, uploading: false }]);
+  }
 
-  async function handleSalvar() {
+  function removerOpcao(i: number) {
+    if (opcoes.length <= 2) return;
+    setOpcoes((o) => o.filter((_, idx) => idx !== i));
+  }
+
+  function setTexto(i: number, texto: string) {
+    setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, texto } : op)));
+  }
+
+  async function handleUpload(i: number, file: File) {
+    setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, uploading: true } : op)));
+    try {
+      const url = await uploadImagemOpcao(file, tempId);
+      setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, imagem_url: url, uploading: false } : op)));
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao enviar imagem");
+      setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, uploading: false } : op)));
+    }
+  }
+
+  async function handleCriar() {
+    if (!titulo.trim()) return toast.error("Dê um título para a enquete.");
+    const validas = opcoes.filter((o) => o.texto.trim());
+    if (validas.length < 2) return toast.error("Adicione pelo menos 2 opções com texto.");
+
     setSalvando(true);
     try {
-      await Promise.all([
-        salvarConfig.mutateAsync({ chave: "campanha_agasalho_ativa", valor: ativa ? "true" : "false" }),
-        salvarConfig.mutateAsync({ chave: "campanha_agasalho_titulo", valor: titulo }),
-        salvarConfig.mutateAsync({ chave: "campanha_agasalho_subtitulo", valor: subtitulo }),
-        salvarConfig.mutateAsync({ chave: "campanha_agasalho_detalhes", valor: detalhes }),
-      ]);
-      ["campanha_agasalho_ativa", "campanha_agasalho_titulo", "campanha_agasalho_subtitulo", "campanha_agasalho_detalhes"].forEach((k) => {
-        qc.invalidateQueries({ queryKey: ["config", k] });
-        qc.invalidateQueries({ queryKey: ["config-public", k] });
+      await criar.mutateAsync({
+        titulo: titulo.trim(),
+        descricao,
+        categoria,
+        opcoes: validas.map((o) => ({ texto: o.texto, imagem_url: o.imagem_url })),
       });
-      toast.success("Pop-up da campanha atualizado!");
+      toast.success("Enquete criada como rascunho. Ative-a quando quiser abrir a votação.");
+      setTitulo("");
+      setDescricao("");
+      setCategoria("clube");
+      setOpcoes([{ texto: "", imagem_url: null, uploading: false }, { texto: "", imagem_url: null, uploading: false }]);
+      onCriada();
     } catch (err: any) {
-      toast.error(err.message ?? "Erro ao salvar");
+      toast.error(err.message ?? "Erro ao criar enquete");
     } finally {
       setSalvando(false);
     }
   }
 
   return (
-    <div className="rounded-2xl border border-amber-400/25 bg-amber-400/5 p-5 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400/20 text-amber-400">
-            <Megaphone className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-base">Pop-up da campanha (home)</h3>
-            <p className="text-xs text-muted-foreground">
-              Aparece uma vez por visita para quem entra no site.
-            </p>
-          </div>
+    <div className="rounded-2xl border border-white/10 bg-white/3 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Vote className="h-5 w-5 text-accent" />
+        <h3 className="font-bold text-base">Nova enquete</h3>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-muted-foreground">Título</label>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Ex: Escolha do novo uniforme"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground">{ativa ? "Ativo" : "Inativo"}</span>
-          <Switch checked={ativa} onCheckedChange={setAtiva} />
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-muted-foreground">Categoria</label>
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value as EnqueteCategoria)}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          >
+            {Object.entries(CATEGORIA_LABEL).map(([v, label]) => (
+              <option key={v} value={v}>{label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="agasalho-titulo">Título (destaque)</Label>
-        <Input
-          id="agasalho-titulo"
-          value={titulo}
-          maxLength={80}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Ex: CAMPANHA DO AGASALHO 2026"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="agasalho-subtitulo">Texto de apoio</Label>
-        <Textarea
-          id="agasalho-subtitulo"
-          value={subtitulo}
-          maxLength={160}
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-muted-foreground">Descrição (opcional)</label>
+        <textarea
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
           rows={2}
-          onChange={(e) => setSubtitulo(e.target.value)}
-          placeholder="Ex: Aliança aquecendo quem precisa!"
+          placeholder="Explique do que se trata a enquete"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm resize-none"
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="agasalho-detalhes">Chamada para ação (caixa em destaque)</Label>
-        <Textarea
-          id="agasalho-detalhes"
-          value={detalhes}
-          maxLength={300}
-          rows={3}
-          onChange={(e) => setDetalhes(e.target.value)}
-          placeholder="Ex: Ajude o Aliança a aquecer quem precisa! Doe agasalhos! Disponibilizaremos caixas para o recebimento das doações próximo à churrasqueira, durante o inverno."
-        />
+        <label className="text-xs font-semibold text-muted-foreground">Opções (com imagem opcional)</label>
+        {opcoes.map((op, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileRefs.current[i]?.click()}
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 overflow-hidden"
+            >
+              {op.uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : op.imagem_url ? (
+                <img src={op.imagem_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <ImagePlus className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            <input
+              ref={(el) => (fileRefs.current[i] = el)}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(i, f); }}
+            />
+            <input
+              value={op.texto}
+              onChange={(e) => setTexto(i, e.target.value)}
+              placeholder={`Opção ${i + 1}`}
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+            />
+            {opcoes.length > 2 && (
+              <button type="button" onClick={() => removerOpcao(i)} className="text-muted-foreground hover:text-destructive">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ))}
+        {opcoes.length < 10 && (
+          <button
+            type="button"
+            onClick={addOpcao}
+            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar opção
+          </button>
+        )}
       </div>
 
-      <Button onClick={handleSalvar} disabled={salvando} className="w-full">
-        {salvando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-        Salvar pop-up
-      </Button>
+      <button
+        onClick={handleCriar}
+        disabled={salvando}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent/20 py-2.5 text-sm font-bold text-accent transition disabled:opacity-50"
+      >
+        {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+        Criar enquete (como rascunho)
+      </button>
+    </div>
+  );
+}
+
+function EnqueteResultadoBarra({ enqueteId, opcoes }: { enqueteId: string; opcoes: { id: string; texto: string }[] }) {
+  const { data: totais } = useResultadosEnquete(enqueteId);
+  const soma = Object.values(totais ?? {}).reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="mt-3 space-y-2">
+      {opcoes.map((o) => {
+        const votos = totais?.[o.id] ?? 0;
+        const pct = soma > 0 ? Math.round((votos / soma) * 100) : 0;
+        return (
+          <div key={o.id} className="text-xs">
+            <div className="flex justify-between mb-1">
+              <span className="text-foreground/80">{o.texto}</span>
+              <span className="font-semibold text-muted-foreground">{votos} voto(s) · {pct}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+              <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+      {soma === 0 && <p className="text-xs text-muted-foreground">Ainda sem votos.</p>}
+    </div>
+  );
+}
+
+function ListaEnquetes() {
+  const { data: enquetes, isLoading, refetch } = useEnquetesAdmin();
+  const atualizarStatus = useAtualizarStatusEnquete();
+  const excluir = useExcluirEnquete();
+
+  async function toggleStatus(id: string, atual: string) {
+    const novo = atual === "ativa" ? "encerrada" : "ativa";
+    try {
+      await atualizarStatus.mutateAsync({ id, status: novo as any });
+      toast.success(novo === "ativa" ? "Enquete ativada — jogadores já podem votar!" : "Enquete encerrada.");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao atualizar status");
+    }
+  }
+
+  async function handleExcluir(id: string) {
+    if (!confirm("Excluir esta enquete e todos os votos? Essa ação não pode ser desfeita.")) return;
+    try {
+      await excluir.mutateAsync(id);
+      toast.success("Enquete excluída.");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao excluir");
+    }
+  }
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando enquetes...</p>;
+  if (!enquetes?.length) return <p className="text-sm text-muted-foreground">Nenhuma enquete criada ainda.</p>;
+
+  return (
+    <div className="space-y-3">
+      {enquetes.map((e) => (
+        <div key={e.id} className="rounded-2xl border border-white/10 bg-card/60 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm">{e.titulo}</h4>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                  {CATEGORIA_LABEL[e.categoria]}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    e.status === "ativa"
+                      ? "bg-green-500/20 text-green-300"
+                      : e.status === "encerrada"
+                      ? "bg-white/10 text-muted-foreground"
+                      : "bg-yellow-500/20 text-yellow-300"
+                  }`}
+                >
+                  {e.status}
+                </span>
+              </div>
+              {e.descricao && <p className="mt-1 text-xs text-muted-foreground max-w-md">{e.descricao}</p>}
+            </div>
+            <div className="flex items-center gap-2">
+              {e.status !== "encerrada" && (
+                <button
+                  onClick={() => toggleStatus(e.id, e.status)}
+                  className="flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15"
+                >
+                  {e.status === "ativa" ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                  {e.status === "ativa" ? "Encerrar" : "Ativar"}
+                </button>
+              )}
+              <button
+                onClick={() => handleExcluir(e.id)}
+                className="rounded-lg bg-white/10 p-1.5 text-muted-foreground hover:bg-red-500/20 hover:text-red-300"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <BarChart3 className="h-3 w-3" /> Resultados em tempo real
+          </div>
+          <EnqueteResultadoBarra enqueteId={e.id} opcoes={e.opcoes} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminEnquetes() {
+  const { refetch } = useEnquetesAdmin();
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-lg font-bold flex items-center gap-2"><Vote className="h-5 w-5 text-accent" /> Enquetes</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Crie enquetes com imagens (ex: escolha do novo uniforme, festas, eleições, ações do clube).
+          Só jogadores cadastrados, aprovados e logados podem votar — um voto por jogador.
+        </p>
+      </div>
+      <NovaEnquete onCriada={() => refetch()} />
+      <ListaEnquetes />
     </div>
   );
 }
 
 export function AdminCampanhas() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <div>
         <h2 className="text-xl font-bold">Campanhas — Aliança Solidário</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Envie as fotos que vão aparecer nos cards circulares da seção "Aliança Solidário" no site.
         </p>
       </div>
-
-      <PopupAgasalho />
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <CampanhaCard
           icone={Shirt}
@@ -276,6 +469,10 @@ export function AdminCampanhas() {
           pasta="campanhas/sangue"
           cor="#ef4444"
         />
+      </div>
+
+      <div className="border-t border-white/10 pt-6">
+        <AdminEnquetes />
       </div>
     </div>
   );
