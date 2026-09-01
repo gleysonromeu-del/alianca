@@ -146,42 +146,60 @@ function CampanhaCard({
 }
 
 // ─── Nova enquete: formulário com opções + upload de imagem por opção ───
+type OpcaoForm = { texto: string; imagem_url: string | null; uploading: boolean; rodada: number };
+
 function NovaEnquete({ onCriada }: { onCriada: () => void }) {
   const criar = useCriarEnquete();
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<EnqueteCategoria>("clube");
-  const [opcoes, setOpcoes] = useState<{ texto: string; imagem_url: string | null; uploading: boolean }[]>([
-    { texto: "", imagem_url: null, uploading: false },
-    { texto: "", imagem_url: null, uploading: false },
+  const [opcoes, setOpcoes] = useState<OpcaoForm[]>([
+    { texto: "", imagem_url: null, uploading: false, rodada: 0 },
+    { texto: "", imagem_url: null, uploading: false, rodada: 0 },
   ]);
   const [salvando, setSalvando] = useState(false);
-  const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   // usamos um id temporário só para organizar a pasta de upload antes de a enquete existir
   const [tempId] = useState(() => crypto.randomUUID());
 
-  function addOpcao() {
-    if (opcoes.length >= 10) return;
-    setOpcoes((o) => [...o, { texto: "", imagem_url: null, uploading: false }]);
+  const rodadas = [...new Set(opcoes.map((o) => o.rodada))].sort((a, b) => a - b);
+
+  function addOpcao(rodada: number) {
+    if (opcoes.filter((o) => o.rodada === rodada).length >= 10) return;
+    setOpcoes((o) => [...o, { texto: "", imagem_url: null, uploading: false, rodada }]);
   }
 
-  function removerOpcao(i: number) {
-    if (opcoes.length <= 2) return;
-    setOpcoes((o) => o.filter((_, idx) => idx !== i));
+  function addRodada() {
+    const proxima = rodadas.length ? Math.max(...rodadas) + 1 : 0;
+    setOpcoes((o) => [
+      ...o,
+      { texto: "", imagem_url: null, uploading: false, rodada: proxima },
+      { texto: "", imagem_url: null, uploading: false, rodada: proxima },
+    ]);
   }
 
-  function setTexto(i: number, texto: string) {
-    setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, texto } : op)));
+  function removerRodada(rodada: number) {
+    if (rodadas.length <= 1) return;
+    setOpcoes((o) => o.filter((op) => op.rodada !== rodada));
   }
 
-  async function handleUpload(i: number, file: File) {
-    setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, uploading: true } : op)));
+  function removerOpcao(idx: number, rodada: number) {
+    if (opcoes.filter((o) => o.rodada === rodada).length <= 2) return;
+    setOpcoes((o) => o.filter((_, i) => i !== idx));
+  }
+
+  function setTexto(idx: number, texto: string) {
+    setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, texto } : op)));
+  }
+
+  async function handleUpload(idx: number, file: File) {
+    setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, uploading: true } : op)));
     try {
       const url = await uploadImagemOpcao(file, tempId);
-      setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, imagem_url: url, uploading: false } : op)));
+      setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, imagem_url: url, uploading: false } : op)));
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao enviar imagem");
-      setOpcoes((o) => o.map((op, idx) => (idx === i ? { ...op, uploading: false } : op)));
+      setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, uploading: false } : op)));
     }
   }
 
@@ -196,13 +214,13 @@ function NovaEnquete({ onCriada }: { onCriada: () => void }) {
         titulo: titulo.trim(),
         descricao,
         categoria,
-        opcoes: validas.map((o) => ({ texto: o.texto, imagem_url: o.imagem_url })),
+        opcoes: validas.map((o) => ({ texto: o.texto, imagem_url: o.imagem_url, rodada: o.rodada })),
       });
       toast.success("Enquete criada como rascunho. Ative-a quando quiser abrir a votação.");
       setTitulo("");
       setDescricao("");
       setCategoria("clube");
-      setOpcoes([{ texto: "", imagem_url: null, uploading: false }, { texto: "", imagem_url: null, uploading: false }]);
+      setOpcoes([{ texto: "", imagem_url: null, uploading: false, rodada: 0 }, { texto: "", imagem_url: null, uploading: false, rodada: 0 }]);
       onCriada();
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao criar enquete");
@@ -217,6 +235,10 @@ function NovaEnquete({ onCriada }: { onCriada: () => void }) {
         <Vote className="h-5 w-5 text-accent" />
         <h3 className="font-bold text-base">Nova enquete</h3>
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        Use várias rodadas quando a votação tiver etapas (ex: Rodada 1 = Azul 1 vs Azul 2, Rodada 2 = Amarelo 1 vs Amarelo 2).
+        O jogador vota rodada por rodada, num pop-up, até concluir todas.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
@@ -253,52 +275,64 @@ function NovaEnquete({ onCriada }: { onCriada: () => void }) {
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-muted-foreground">Opções (com imagem opcional)</label>
-        {opcoes.map((op, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileRefs.current[i]?.click()}
-              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 overflow-hidden"
-            >
-              {op.uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : op.imagem_url ? (
-                <img src={op.imagem_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <ImagePlus className="h-4 w-4 text-muted-foreground" />
+      <div className="space-y-4">
+        {rodadas.map((rodada, ri) => (
+          <div key={rodada} className="rounded-xl border border-white/10 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-accent">Rodada {ri + 1}</span>
+              {rodadas.length > 1 && (
+                <button type="button" onClick={() => removerRodada(rodada)} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               )}
-            </button>
-            <input
-              ref={(el) => (fileRefs.current[i] = el)}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(i, f); }}
-            />
-            <input
-              value={op.texto}
-              onChange={(e) => setTexto(i, e.target.value)}
-              placeholder={`Opção ${i + 1}`}
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-            />
-            {opcoes.length > 2 && (
-              <button type="button" onClick={() => removerOpcao(i)} className="text-muted-foreground hover:text-destructive">
-                <X className="h-4 w-4" />
+            </div>
+            {opcoes.map((op, idx) =>
+              op.rodada !== rodada ? null : (
+                <div key={idx} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileRefs.current[idx]?.click()}
+                    className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 overflow-hidden"
+                  >
+                    {op.uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : op.imagem_url ? (
+                      <img src={op.imagem_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  <input
+                    ref={(el) => (fileRefs.current[idx] = el)}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(idx, f); }}
+                  />
+                  <input
+                    value={op.texto}
+                    onChange={(e) => setTexto(idx, e.target.value)}
+                    placeholder="Ex: Azul 1"
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  />
+                  {opcoes.filter((o) => o.rodada === rodada).length > 2 && (
+                    <button type="button" onClick={() => removerOpcao(idx, rodada)} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              )
+            )}
+            {opcoes.filter((o) => o.rodada === rodada).length < 10 && (
+              <button type="button" onClick={() => addOpcao(rodada)} className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
+                <Plus className="h-3.5 w-3.5" /> Adicionar opção nesta rodada
               </button>
             )}
           </div>
         ))}
-        {opcoes.length < 10 && (
-          <button
-            type="button"
-            onClick={addOpcao}
-            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
-          >
-            <Plus className="h-3.5 w-3.5" /> Adicionar opção
-          </button>
-        )}
+        <button type="button" onClick={addRodada} className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
+          <Plus className="h-3.5 w-3.5" /> Adicionar rodada
+        </button>
       </div>
 
       <button

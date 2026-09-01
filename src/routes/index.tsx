@@ -5,6 +5,7 @@ import { CampeonatoMensalSection } from "@/components/site/CampeonatoMensalSecti
 import { About } from "@/components/site/About";
 import { SocialProjects } from "@/components/site/SocialProjects";
 import { EnquetesSection } from "@/components/site/EnquetesSection";
+import { EnqueteVotacaoModal } from "@/components/site/EnqueteVotacaoModal";
 import { Footer } from "@/components/site/Footer";
 import { WatermarkBackground } from "@/components/site/WatermarkBackground";
 import { Aniversariantes } from "@/components/site/Aniversariantes";
@@ -35,6 +36,7 @@ function Index() {
   return (
     <div className="relative min-h-screen">
       <WatermarkBackground />
+      <EnqueteVotacaoModal />
       <Navbar />
       <main>
         <Hero />

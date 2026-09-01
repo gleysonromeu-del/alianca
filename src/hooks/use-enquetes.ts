@@ -10,6 +10,7 @@ export interface EnqueteOpcao {
   texto: string;
   imagem_url: string | null;
   ordem: number;
+  rodada: number;
 }
 
 export interface Enquete {
@@ -82,15 +83,29 @@ export function useResultadosEnquete(enqueteId: string | undefined) {
   });
 }
 
-// ─── Meu voto nessa enquete (null se ainda não votou) ───
-export function useMeuVotoEnquete(enqueteId: string | undefined, logado: boolean) {
+// Agrupa as opções de uma enquete em rodadas (ex: rodada 0 = Azul, rodada 1 = Amarelo)
+export function agruparPorRodada(opcoes: EnqueteOpcao[]) {
+  const porRodada = new Map<number, EnqueteOpcao[]>();
+  for (const o of opcoes) {
+    if (!porRodada.has(o.rodada)) porRodada.set(o.rodada, []);
+    porRodada.get(o.rodada)!.push(o);
+  }
+  return [...porRodada.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([rodada, opcoes]) => ({ rodada, opcoes: opcoes.sort((a, b) => a.ordem - b.ordem) }));
+}
+
+// ─── Meus votos nessa enquete: um por rodada já respondida ───
+export function useMeusVotosEnquete(enqueteId: string | undefined, logado: boolean) {
   return useQuery({
-    queryKey: ["meu-voto-enquete", enqueteId],
+    queryKey: ["meus-votos-enquete", enqueteId],
     enabled: !!enqueteId && logado,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("meu_voto_enquete", { _enquete_id: enqueteId });
+      const { data, error } = await supabase.rpc("meus_votos_enquete", { _enquete_id: enqueteId });
       if (error) throw error;
-      return (data as string | null) ?? null;
+      const porRodada: Record<number, string> = {};
+      for (const row of (data ?? []) as { rodada: number; opcao_id: string }[]) porRodada[row.rodada] = row.opcao_id;
+      return porRodada;
     },
   });
 }
@@ -108,7 +123,7 @@ export function useVotarEnquete() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["enquete-resultados", vars.enqueteId] });
-      qc.invalidateQueries({ queryKey: ["meu-voto-enquete", vars.enqueteId] });
+      qc.invalidateQueries({ queryKey: ["meus-votos-enquete", vars.enqueteId] });
     },
   });
 }
@@ -142,7 +157,7 @@ export function useCriarEnquete() {
       titulo: string;
       descricao: string;
       categoria: EnqueteCategoria;
-      opcoes: { texto: string; imagem_url: string | null }[];
+      opcoes: { texto: string; imagem_url: string | null; rodada: number }[];
     }) => {
       const { data: user } = await supabase.auth.getUser();
       const { data: enquete, error } = await supabase
@@ -160,8 +175,14 @@ export function useCriarEnquete() {
 
       const opcoesPayload = input.opcoes
         .filter((o) => o.texto.trim())
-        .map((o, i) => ({ enquete_id: enquete.id, texto: o.texto.trim(), imagem_url: o.imagem_url, ordem: i }));
+        .map((o, i) => ({ enquete_id: enquete.id, texto: o.texto.trim(), imagem_url: o.imagem_url, ordem: i, rodada: o.rodada }));
 
+      const rodadasComOpcoes = new Set(opcoesPayload.map((o) => o.rodada));
+      for (const r of rodadasComOpcoes) {
+        if (opcoesPayload.filter((o) => o.rodada === r).length < 2) {
+          throw new Error("Cada rodada precisa de pelo menos 2 opções.");
+        }
+      }
       if (opcoesPayload.length < 2) throw new Error("A enquete precisa de pelo menos 2 opções.");
 
       const { error: errOp } = await supabase.from("enquete_opcoes").insert(opcoesPayload);
