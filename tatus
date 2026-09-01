@@ -1,0 +1,11 @@
+[33mcommit 13145bafc41bac7d7eb92b800f0cc462ceeb1ead[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Romeu Gleyson <gleysonromeu@gmail.com>
+Date:   Tue Sep 1 08:17:07 2026 -0300
+
+    feat: enquete em pop-up com rodadas
+
+ src/components/site/EnqueteVotacaoModal.tsx | 179 [32m++++++++++++++++++++++++++++[m
+ src/hooks/use-enquetes.ts                   |  39 [32m++++[m[31m--[m
+ src/pages/admin/AdminCampanhas.tsx          | 152 [32m++++++++++++++[m[31m---------[m
+ src/routes/index.tsx                        |   2 [32m+[m
+ 4 files changed, 304 insertions(+), 68 deletions(-)
