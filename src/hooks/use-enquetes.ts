@@ -40,6 +40,31 @@ async function uploadImagemOpcao(file: File, enqueteId: string): Promise<string>
   return data.publicUrl;
 }
 
+async function buscarImagensPorRodada(enqueteIds: string[]) {
+  if (!enqueteIds.length) return new Map<string, string>();
+  const { data, error } = await supabase.from("enquete_rodada_imagens").select("*").in("enquete_id", enqueteIds);
+  if (error) throw error;
+  const mapa = new Map<string, string>();
+  for (const row of data ?? []) mapa.set(`${row.enquete_id}:${row.rodada}`, row.imagem_url);
+  return mapa;
+}
+
+export function useDefinirImagemRodada() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ enqueteId, rodada, imagemUrl }: { enqueteId: string; rodada: number; imagemUrl: string }) => {
+      const { error } = await supabase
+        .from("enquete_rodada_imagens")
+        .upsert({ enquete_id: enqueteId, rodada, imagem_url: imagemUrl });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["enquetes-admin"] });
+      qc.invalidateQueries({ queryKey: ["enquetes-publicas"] });
+    },
+  });
+}
+
 // ─── Público: enquetes visíveis (ativas e encerradas) com opções ───
 export function useEnquetesPublicas() {
   return useQuery({
@@ -58,9 +83,12 @@ export function useEnquetesPublicas() {
         .order("ordem", { ascending: true });
       if (errOp) throw errOp;
 
+      const imagensPorRodada = await buscarImagensPorRodada((enquetes ?? []).map((e) => e.id));
+
       return (enquetes ?? []).map((e) => ({
         ...e,
         opcoes: (opcoes ?? []).filter((o) => o.enquete_id === e.id) as EnqueteOpcao[],
+        imagensPorRodada,
       }));
     },
     staleTime: 1000 * 30,
@@ -84,7 +112,8 @@ export function useResultadosEnquete(enqueteId: string | undefined) {
 }
 
 // Agrupa as opções de uma enquete em rodadas (ex: rodada 0 = Azul, rodada 1 = Amarelo)
-export function agruparPorRodada(opcoes: EnqueteOpcao[]) {
+// imagensPorRodada é o mapa "enqueteId:rodada" -> url, vindo da consulta da enquete.
+export function agruparPorRodada(opcoes: EnqueteOpcao[], imagensPorRodada?: Map<string, string>) {
   const porRodada = new Map<number, EnqueteOpcao[]>();
   for (const o of opcoes) {
     if (!porRodada.has(o.rodada)) porRodada.set(o.rodada, []);
@@ -92,7 +121,11 @@ export function agruparPorRodada(opcoes: EnqueteOpcao[]) {
   }
   return [...porRodada.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([rodada, opcoes]) => ({ rodada, opcoes: opcoes.sort((a, b) => a.ordem - b.ordem) }));
+    .map(([rodada, ops]) => ({
+      rodada,
+      opcoes: ops.sort((a, b) => a.ordem - b.ordem),
+      imagemUrl: imagensPorRodada?.get(`${ops[0]?.enquete_id}:${rodada}`) ?? null,
+    }));
 }
 
 // ─── Meus votos nessa enquete: um por rodada já respondida ───
@@ -142,9 +175,12 @@ export function useEnquetesAdmin() {
         .order("ordem", { ascending: true });
       if (errOp) throw errOp;
 
+      const imagensPorRodada = await buscarImagensPorRodada((data ?? []).map((e) => e.id));
+
       return (data ?? []).map((e) => ({
         ...e,
         opcoes: (opcoes ?? []).filter((o) => o.enquete_id === e.id) as EnqueteOpcao[],
+        imagensPorRodada,
       }));
     },
   });
@@ -157,7 +193,8 @@ export function useCriarEnquete() {
       titulo: string;
       descricao: string;
       categoria: EnqueteCategoria;
-      opcoes: { texto: string; imagem_url: string | null; rodada: number }[];
+      opcoes: { texto: string; rodada: number }[];
+      imagensPorRodada: Record<number, string>;
     }) => {
       const { data: user } = await supabase.auth.getUser();
       const { data: enquete, error } = await supabase
@@ -175,7 +212,7 @@ export function useCriarEnquete() {
 
       const opcoesPayload = input.opcoes
         .filter((o) => o.texto.trim())
-        .map((o, i) => ({ enquete_id: enquete.id, texto: o.texto.trim(), imagem_url: o.imagem_url, ordem: i, rodada: o.rodada }));
+        .map((o, i) => ({ enquete_id: enquete.id, texto: o.texto.trim(), ordem: i, rodada: o.rodada }));
 
       const rodadasComOpcoes = new Set(opcoesPayload.map((o) => o.rodada));
       for (const r of rodadasComOpcoes) {
@@ -187,6 +224,14 @@ export function useCriarEnquete() {
 
       const { error: errOp } = await supabase.from("enquete_opcoes").insert(opcoesPayload);
       if (errOp) throw errOp;
+
+      const imagensPayload = Object.entries(input.imagensPorRodada)
+        .filter(([, url]) => !!url)
+        .map(([rodada, url]) => ({ enquete_id: enquete.id, rodada: Number(rodada), imagem_url: url }));
+      if (imagensPayload.length) {
+        const { error: errImg } = await supabase.from("enquete_rodada_imagens").insert(imagensPayload);
+        if (errImg) throw errImg;
+      }
 
       return enquete;
     },

@@ -12,7 +12,9 @@ import {
   useAtualizarStatusEnquete,
   useExcluirEnquete,
   useResultadosEnquete,
+  useDefinirImagemRodada,
   uploadImagemOpcao,
+  agruparPorRodada,
   CATEGORIA_LABEL,
   type EnqueteCategoria,
 } from "@/hooks/use-enquetes";
@@ -145,82 +147,74 @@ function CampanhaCard({
   );
 }
 
-// ─── Nova enquete: formulário com opções + upload de imagem por opção ───
-type OpcaoForm = { texto: string; imagem_url: string | null; uploading: boolean; rodada: number };
+// ─── Nova enquete: uma imagem única por rodada (mostra todas as opções) + opções em texto ───
+type RodadaForm = { rodada: number; opcoesTexto: string[]; imagemUrl: string | null; uploading: boolean };
 
 function NovaEnquete({ onCriada }: { onCriada: () => void }) {
   const criar = useCriarEnquete();
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<EnqueteCategoria>("clube");
-  const [opcoes, setOpcoes] = useState<OpcaoForm[]>([
-    { texto: "", imagem_url: null, uploading: false, rodada: 0 },
-    { texto: "", imagem_url: null, uploading: false, rodada: 0 },
+  const [rodadas, setRodadas] = useState<RodadaForm[]>([
+    { rodada: 0, opcoesTexto: ["", ""], imagemUrl: null, uploading: false },
   ]);
   const [salvando, setSalvando] = useState(false);
-  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  // usamos um id temporário só para organizar a pasta de upload antes de a enquete existir
+  const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [tempId] = useState(() => crypto.randomUUID());
 
-  const rodadas = [...new Set(opcoes.map((o) => o.rodada))].sort((a, b) => a - b);
-
-  function addOpcao(rodada: number) {
-    if (opcoes.filter((o) => o.rodada === rodada).length >= 10) return;
-    setOpcoes((o) => [...o, { texto: "", imagem_url: null, uploading: false, rodada }]);
-  }
-
   function addRodada() {
-    const proxima = rodadas.length ? Math.max(...rodadas) + 1 : 0;
-    setOpcoes((o) => [
-      ...o,
-      { texto: "", imagem_url: null, uploading: false, rodada: proxima },
-      { texto: "", imagem_url: null, uploading: false, rodada: proxima },
-    ]);
+    const proxima = rodadas.length ? Math.max(...rodadas.map((r) => r.rodada)) + 1 : 0;
+    setRodadas((r) => [...r, { rodada: proxima, opcoesTexto: ["", ""], imagemUrl: null, uploading: false }]);
   }
 
   function removerRodada(rodada: number) {
     if (rodadas.length <= 1) return;
-    setOpcoes((o) => o.filter((op) => op.rodada !== rodada));
+    setRodadas((r) => r.filter((x) => x.rodada !== rodada));
   }
 
-  function removerOpcao(idx: number, rodada: number) {
-    if (opcoes.filter((o) => o.rodada === rodada).length <= 2) return;
-    setOpcoes((o) => o.filter((_, i) => i !== idx));
+  function setOpcaoTexto(rodada: number, idx: number, texto: string) {
+    setRodadas((rs) => rs.map((r) => (r.rodada !== rodada ? r : { ...r, opcoesTexto: r.opcoesTexto.map((t, i) => (i === idx ? texto : t)) })));
   }
 
-  function setTexto(idx: number, texto: string) {
-    setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, texto } : op)));
+  function addOpcaoTexto(rodada: number) {
+    setRodadas((rs) => rs.map((r) => (r.rodada !== rodada || r.opcoesTexto.length >= 10 ? r : { ...r, opcoesTexto: [...r.opcoesTexto, ""] })));
   }
 
-  async function handleUpload(idx: number, file: File) {
-    setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, uploading: true } : op)));
+  function removerOpcaoTexto(rodada: number, idx: number) {
+    setRodadas((rs) => rs.map((r) => (r.rodada !== rodada || r.opcoesTexto.length <= 2 ? r : { ...r, opcoesTexto: r.opcoesTexto.filter((_, i) => i !== idx) })));
+  }
+
+  async function handleUploadCapa(rodada: number, file: File) {
+    setRodadas((rs) => rs.map((r) => (r.rodada === rodada ? { ...r, uploading: true } : r)));
     try {
       const url = await uploadImagemOpcao(file, tempId);
-      setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, imagem_url: url, uploading: false } : op)));
+      setRodadas((rs) => rs.map((r) => (r.rodada === rodada ? { ...r, imagemUrl: url, uploading: false } : r)));
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao enviar imagem");
-      setOpcoes((o) => o.map((op, i) => (i === idx ? { ...op, uploading: false } : op)));
+      setRodadas((rs) => rs.map((r) => (r.rodada === rodada ? { ...r, uploading: false } : r)));
     }
   }
 
   async function handleCriar() {
     if (!titulo.trim()) return toast.error("Dê um título para a enquete.");
-    const validas = opcoes.filter((o) => o.texto.trim());
-    if (validas.length < 2) return toast.error("Adicione pelo menos 2 opções com texto.");
+
+    const opcoesPayload: { texto: string; rodada: number }[] = [];
+    const imagensPorRodada: Record<number, string> = {};
+    for (const r of rodadas) {
+      const textos = r.opcoesTexto.filter((t) => t.trim());
+      if (textos.length < 2) return toast.error("Cada rodada precisa de pelo menos 2 opções com texto.");
+      for (const t of textos) opcoesPayload.push({ texto: t, rodada: r.rodada });
+      if (r.imagemUrl) imagensPorRodada[r.rodada] = r.imagemUrl;
+    }
 
     setSalvando(true);
     try {
-      await criar.mutateAsync({
-        titulo: titulo.trim(),
-        descricao,
-        categoria,
-        opcoes: validas.map((o) => ({ texto: o.texto, imagem_url: o.imagem_url, rodada: o.rodada })),
-      });
+      await criar.mutateAsync({ titulo: titulo.trim(), descricao, categoria, opcoes: opcoesPayload, imagensPorRodada });
       toast.success("Enquete criada como rascunho. Ative-a quando quiser abrir a votação.");
       setTitulo("");
       setDescricao("");
       setCategoria("clube");
-      setOpcoes([{ texto: "", imagem_url: null, uploading: false, rodada: 0 }, { texto: "", imagem_url: null, uploading: false, rodada: 0 }]);
+      setRodadas([{ rodada: 0, opcoesTexto: ["", ""], imagemUrl: null, uploading: false }]);
       onCriada();
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao criar enquete");
@@ -236,8 +230,8 @@ function NovaEnquete({ onCriada }: { onCriada: () => void }) {
         <h3 className="font-bold text-base">Nova enquete</h3>
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
-        Use várias rodadas quando a votação tiver etapas (ex: Rodada 1 = Azul 1 vs Azul 2, Rodada 2 = Amarelo 1 vs Amarelo 2).
-        O jogador vota rodada por rodada, num pop-up, até concluir todas.
+        Cada rodada tem UMA imagem única mostrando todas as opções (ex: a arte com os uniformes numerados de 1 a 9).
+        Liste os nomes/números das opções em texto — o jogador vê a imagem inteira e escolhe pelo nome.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -276,58 +270,67 @@ function NovaEnquete({ onCriada }: { onCriada: () => void }) {
       </div>
 
       <div className="space-y-4">
-        {rodadas.map((rodada, ri) => (
-          <div key={rodada} className="rounded-xl border border-white/10 p-3 space-y-2">
+        {rodadas.map((r, ri) => (
+          <div key={r.rodada} className="rounded-xl border border-white/10 p-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wide text-accent">Rodada {ri + 1}</span>
               {rodadas.length > 1 && (
-                <button type="button" onClick={() => removerRodada(rodada)} className="text-muted-foreground hover:text-destructive">
+                <button type="button" onClick={() => removerRodada(r.rodada)} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
-            {opcoes.map((op, idx) =>
-              op.rodada !== rodada ? null : (
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Imagem única desta rodada (com todas as opções visíveis)</label>
+              <button
+                type="button"
+                onClick={() => fileRefs.current[r.rodada]?.click()}
+                className="relative flex h-28 w-full items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 overflow-hidden"
+              >
+                {r.uploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : r.imagemUrl ? (
+                  <img src={r.imagemUrl} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <ImagePlus className="h-5 w-5" />
+                    <span className="text-xs">Enviar imagem</span>
+                  </span>
+                )}
+              </button>
+              <input
+                ref={(el) => (fileRefs.current[r.rodada] = el)}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadCapa(r.rodada, f); }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-muted-foreground">Opções (nomes/números, conforme aparecem na imagem)</label>
+              {r.opcoesTexto.map((texto, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileRefs.current[idx]?.click()}
-                    className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 overflow-hidden"
-                  >
-                    {op.uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : op.imagem_url ? (
-                      <img src={op.imagem_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
                   <input
-                    ref={(el) => (fileRefs.current[idx] = el)}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(idx, f); }}
-                  />
-                  <input
-                    value={op.texto}
-                    onChange={(e) => setTexto(idx, e.target.value)}
+                    value={texto}
+                    onChange={(e) => setOpcaoTexto(r.rodada, idx, e.target.value)}
                     placeholder="Ex: Azul 1"
                     className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
                   />
-                  {opcoes.filter((o) => o.rodada === rodada).length > 2 && (
-                    <button type="button" onClick={() => removerOpcao(idx, rodada)} className="text-muted-foreground hover:text-destructive">
+                  {r.opcoesTexto.length > 2 && (
+                    <button type="button" onClick={() => removerOpcaoTexto(r.rodada, idx)} className="text-muted-foreground hover:text-destructive">
                       <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
-              )
-            )}
-            {opcoes.filter((o) => o.rodada === rodada).length < 10 && (
-              <button type="button" onClick={() => addOpcao(rodada)} className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
-                <Plus className="h-3.5 w-3.5" /> Adicionar opção nesta rodada
-              </button>
-            )}
+              ))}
+              {r.opcoesTexto.length < 10 && (
+                <button type="button" onClick={() => addOpcaoTexto(r.rodada)} className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
+                  <Plus className="h-3.5 w-3.5" /> Adicionar opção
+                </button>
+              )}
+            </div>
           </div>
         ))}
         <button type="button" onClick={addRodada} className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline">

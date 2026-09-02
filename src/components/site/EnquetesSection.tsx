@@ -1,40 +1,34 @@
 import { motion } from "framer-motion";
 import { useEnquetesPublicas, useResultadosEnquete, agruparPorRodada, CATEGORIA_LABEL } from "@/hooks/use-enquetes";
 
-function PlacarRodada({ enqueteId, opcoes }: { enqueteId: string; opcoes: { id: string; texto: string; imagem_url: string | null }[] }) {
+function PlacarRodada({ enqueteId, opcoes, imagemUrl }: { enqueteId: string; opcoes: { id: string; texto: string }[]; imagemUrl: string | null }) {
   const { data: totais } = useResultadosEnquete(enqueteId);
   const soma = Object.values(totais ?? {}).reduce((a: number, b) => a + (b as number), 0);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {opcoes.map((op) => {
-        const votos = totais?.[op.id] ?? 0;
-        const pct = soma > 0 ? Math.round((votos / soma) * 100) : 0;
-        return (
-          <div key={op.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="flex items-center gap-3">
-              {op.imagem_url ? (
-                <img src={op.imagem_url} alt={op.texto} className="h-14 w-14 rounded-xl object-cover" />
-              ) : (
-                <div className="grid h-14 w-14 place-items-center rounded-xl bg-white/10 text-xl">🗳️</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold truncate">{op.texto}</p>
-                <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
-                </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">{votos} voto(s) · {pct}%</p>
+    <div>
+      {imagemUrl && <img src={imagemUrl} alt="" className="mb-3 w-full rounded-2xl border border-white/10 object-contain" />}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {opcoes.map((op) => {
+          const votos = totais?.[op.id] ?? 0;
+          const pct = soma > 0 ? Math.round((votos / soma) * 100) : 0;
+          return (
+            <div key={op.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-sm font-semibold">{op.texto}</p>
+              <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
               </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">{votos} voto(s) · {pct}%</p>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function CardEnquete({ enquete }: { enquete: any }) {
-  const rodadas = agruparPorRodada(enquete.opcoes);
+  const rodadas = agruparPorRodada(enquete.opcoes, enquete.imagensPorRodada);
 
   return (
     <motion.div
@@ -63,7 +57,7 @@ function CardEnquete({ enquete }: { enquete: any }) {
             {rodadas.length > 1 && (
               <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Rodada {r.rodada + 1}</p>
             )}
-            <PlacarRodada enqueteId={enquete.id} opcoes={r.opcoes} />
+            <PlacarRodada enqueteId={enquete.id} opcoes={r.opcoes} imagemUrl={r.imagemUrl} />
           </div>
         ))}
       </div>

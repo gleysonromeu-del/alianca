@@ -47,7 +47,7 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
   const [enviando, setEnviando] = useState(false);
   const [mostrarPlacarDe, setMostrarPlacarDe] = useState<number | null>(null);
 
-  const rodadas = useMemo(() => agruparPorRodada(enquete.opcoes), [enquete.opcoes]);
+  const rodadas = useMemo(() => agruparPorRodada(enquete.opcoes, enquete.imagensPorRodada), [enquete.opcoes, enquete.imagensPorRodada]);
   const proximaRodada = rodadas.find((r) => !(meusVotos && r.rodada in meusVotos));
   const tudoVotado = !proximaRodada;
 
@@ -68,7 +68,7 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0b0f1a] p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-[#0b0f1a] p-6 shadow-2xl sm:p-8">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-accent">Enquete do Aliança</p>
@@ -113,27 +113,27 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
             <p className="mb-3 text-xs font-bold uppercase text-muted-foreground">
               Rodada {proximaRodada!.rodada + 1} de {rodadas.length}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            {proximaRodada!.imagemUrl && (
+              <img
+                src={proximaRodada!.imagemUrl}
+                alt={`Opções da rodada ${proximaRodada!.rodada + 1}`}
+                className="mb-4 w-full rounded-2xl border border-white/10 object-contain"
+              />
+            )}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {proximaRodada!.opcoes.map((op) => (
                 <button
                   key={op.id}
                   type="button"
                   onClick={() => setSelecionada(op.id)}
-                  className={`relative overflow-hidden rounded-2xl border-2 p-2 text-left transition ${
-                    selecionada === op.id ? "border-accent bg-accent/10" : "border-white/10 bg-white/5 hover:border-white/25"
+                  className={`relative flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-center text-sm font-bold transition ${
+                    selecionada === op.id ? "border-accent bg-accent/10 text-accent" : "border-white/10 bg-white/5 hover:border-white/25"
                   }`}
                 >
-                  {op.imagem_url ? (
-                    <img src={op.imagem_url} alt={op.texto} className="aspect-square w-full rounded-xl object-cover" />
-                  ) : (
-                    <div className="grid aspect-square w-full place-items-center rounded-xl bg-white/10">
-                      <Vote className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <p className="mt-2 text-center text-sm font-bold">{op.texto}</p>
+                  {op.texto}
                   {selecionada === op.id && (
-                    <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-accent text-[#0b0f1a]">
-                      <X className="h-4 w-4" strokeWidth={3} />
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-accent text-[#0b0f1a]">
+                      <X className="h-3.5 w-3.5" strokeWidth={3} />
                     </span>
                   )}
                 </button>
