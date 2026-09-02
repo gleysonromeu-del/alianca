@@ -11,5 +11,9 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
+    // Desativa o code-splitting automático de rotas: esse mecanismo estava
+    // travando com um erro de resolução (ENOENT) num import específico
+    // (EnquetesSection) mesmo com o arquivo correto no repositório.
+    router: { autoCodeSplitting: false },
   },
 });
