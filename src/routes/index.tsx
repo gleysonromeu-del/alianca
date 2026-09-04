@@ -17,5 +17,6 @@ export const Route = createFileRoute("/")({
         content: "Uma paixão. Um coração. Uma história. Conheça o clube e seus projetos.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://www.aliancacgec2004.com.br/" }],
   }),
 });
