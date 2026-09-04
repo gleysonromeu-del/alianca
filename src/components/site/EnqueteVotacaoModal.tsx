@@ -79,7 +79,7 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
           </button>
         </div>
 
-        {enquete.imagem_url && (
+        {enquete.imagem_url && proximaRodada?.rodada === 0 && (
           <img
             src={enquete.imagem_url}
             alt={enquete.titulo}
