@@ -13,6 +13,7 @@ import {
   useExcluirEnquete,
   useResultadosEnquete,
   useDefinirImagemRodada,
+  useVotosDetalhados,
   uploadImagemOpcao,
   agruparPorRodada,
   CATEGORIA_LABEL,
@@ -376,10 +377,46 @@ function EnqueteResultadoBarra({ enqueteId, opcoes }: { enqueteId: string; opcoe
   );
 }
 
+// ─── Admin: quem já votou nessa enquete ───
+function VotantesEnquete({ enqueteId }: { enqueteId: string }) {
+  const { data: votos, isLoading } = useVotosDetalhados(enqueteId);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Carregando votantes...</p>;
+  if (!votos?.length) return <p className="text-xs text-muted-foreground">Ninguém votou ainda.</p>;
+
+  return (
+    <div className="max-h-56 overflow-y-auto rounded-xl border border-white/10">
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-card/95">
+          <tr className="text-left text-muted-foreground">
+            <th className="px-3 py-2 font-semibold">Jogador</th>
+            <th className="px-3 py-2 font-semibold">Rodada</th>
+            <th className="px-3 py-2 font-semibold">Escolheu</th>
+            <th className="px-3 py-2 font-semibold">Quando</th>
+          </tr>
+        </thead>
+        <tbody>
+          {votos.map((v, i) => (
+            <tr key={i} className="border-t border-white/5">
+              <td className="px-3 py-2 font-semibold">{v.jogadorNome}</td>
+              <td className="px-3 py-2">{v.rodada + 1}</td>
+              <td className="px-3 py-2">{v.opcaoTexto}</td>
+              <td className="px-3 py-2 text-muted-foreground">
+                {new Date(v.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ListaEnquetes() {
   const { data: enquetes, isLoading, refetch } = useEnquetesAdmin();
   const atualizarStatus = useAtualizarStatusEnquete();
   const excluir = useExcluirEnquete();
+  const [verVotantesDe, setVerVotantesDe] = useState<string | null>(null);
 
   async function toggleStatus(id: string, atual: string) {
     const novo = atual === "ativa" ? "encerrada" : "ativa";
@@ -448,10 +485,21 @@ function ListaEnquetes() {
             </div>
           </div>
 
-          <div className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <BarChart3 className="h-3 w-3" /> Resultados em tempo real
+          <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" /> Resultados em tempo real</span>
+            <button
+              onClick={() => setVerVotantesDe(verVotantesDe === e.id ? null : e.id)}
+              className="font-semibold text-accent hover:underline"
+            >
+              {verVotantesDe === e.id ? "Ocultar votantes" : "Ver quem votou"}
+            </button>
           </div>
           <EnqueteResultadoBarra enqueteId={e.id} opcoes={e.opcoes} />
+          {verVotantesDe === e.id && (
+            <div className="mt-3">
+              <VotantesEnquete enqueteId={e.id} />
+            </div>
+          )}
         </div>
       ))}
     </div>

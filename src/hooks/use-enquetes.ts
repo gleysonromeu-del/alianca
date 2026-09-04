@@ -107,7 +107,8 @@ export function useResultadosEnquete(enqueteId: string | undefined) {
       for (const row of data ?? []) totais[row.opcao_id] = Number(row.total_votos);
       return totais;
     },
-    staleTime: 1000 * 15,
+    staleTime: 1000 * 5,
+    refetchInterval: 1000 * 8, // atualiza o placar sozinho, sem precisar recarregar a página
   });
 }
 
@@ -161,7 +162,46 @@ export function useVotarEnquete() {
   });
 }
 
-// ─── Admin: CRUD completo ───
+// ─── Admin: ver quem já votou (nome do jogador + o que escolheu) ───
+export function useVotosDetalhados(enqueteId: string | undefined) {
+  return useQuery({
+    queryKey: ["enquete-votos-detalhados", enqueteId],
+    enabled: !!enqueteId,
+    queryFn: async () => {
+      const { data: votos, error } = await supabase
+        .from("enquete_votos")
+        .select("jogador_id, opcao_id, rodada, criado_em")
+        .eq("enquete_id", enqueteId)
+        .order("criado_em", { ascending: false });
+      if (error) throw error;
+
+      const jogadorIds = [...new Set((votos ?? []).map((v) => v.jogador_id))];
+      const opcaoIds = [...new Set((votos ?? []).map((v) => v.opcao_id))];
+
+      const [{ data: jogadores, error: errJog }, { data: opcoes, error: errOp }] = await Promise.all([
+        jogadorIds.length
+          ? supabase.from("jogadores").select("id, nome_completo, apelido").in("id", jogadorIds)
+          : Promise.resolve({ data: [], error: null }),
+        opcaoIds.length
+          ? supabase.from("enquete_opcoes").select("id, texto").in("id", opcaoIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (errJog) throw errJog;
+      if (errOp) throw errOp;
+
+      const jogadorPorId = new Map((jogadores ?? []).map((j) => [j.id, j]));
+      const opcaoPorId = new Map((opcoes ?? []).map((o) => [o.id, o]));
+
+      return (votos ?? []).map((v) => ({
+        ...v,
+        jogadorNome: jogadorPorId.get(v.jogador_id)?.apelido || jogadorPorId.get(v.jogador_id)?.nome_completo || "Jogador removido",
+        opcaoTexto: opcaoPorId.get(v.opcao_id)?.texto ?? "—",
+      }));
+    },
+  });
+}
+
+
 export function useEnquetesAdmin() {
   return useQuery({
     queryKey: ["enquetes-admin"],
