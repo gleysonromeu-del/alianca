@@ -47,7 +47,7 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
   const [enviando, setEnviando] = useState(false);
   const [mostrarPlacarDe, setMostrarPlacarDe] = useState<number | null>(null);
 
-  const rodadas = useMemo(() => agruparPorRodada(enquete.opcoes, enquete.imagensPorRodada), [enquete.opcoes, enquete.imagensPorRodada]);
+  const rodadas = useMemo(() => agruparPorRodada(enquete.opcoes), [enquete.opcoes]);
   const proximaRodada = rodadas.find((r) => !(meusVotos && r.rodada in meusVotos));
   const tudoVotado = !proximaRodada;
 
@@ -78,6 +78,14 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {enquete.imagem_url && (
+          <img
+            src={enquete.imagem_url}
+            alt={enquete.titulo}
+            className="mt-4 w-full rounded-2xl border border-white/10 object-contain"
+          />
+        )}
 
         {tudoVotado ? (
           <div className="mt-5 text-center">
@@ -113,13 +121,6 @@ function ModalDeUmaEnquete({ enquete, onFechar }: { enquete: any; onFechar: () =
             <p className="mb-3 text-xs font-bold uppercase text-muted-foreground">
               Rodada {proximaRodada!.rodada + 1} de {rodadas.length}
             </p>
-            {proximaRodada!.imagemUrl && (
-              <img
-                src={proximaRodada!.imagemUrl}
-                alt={`Opções da rodada ${proximaRodada!.rodada + 1}`}
-                className="mb-4 w-full rounded-2xl border border-white/10 object-contain"
-              />
-            )}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {proximaRodada!.opcoes.map((op) => (
                 <button
